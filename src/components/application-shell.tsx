@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { BrandMark } from "./brand-mark";
+import { HeaderControls } from "./header-controls";
 import { type IconName, NavigationIcon } from "./navigation-icon";
 
 const navigationItems: ReadonlyArray<{ label: string; icon: IconName }> = [
@@ -14,7 +15,7 @@ function Brand() {
   return (
     <div className="flex items-center gap-3">
       <BrandMark />
-      <span className="text-sm font-semibold tracking-tight text-zinc-100">
+      <span className="text-sm font-semibold tracking-tight text-foreground">
         CodeTrail
       </span>
     </div>
@@ -33,10 +34,10 @@ function Navigation({ compact = false }: { compact?: boolean }) {
         return (
           <button
             aria-current={active ? "page" : undefined}
-            className={`flex items-center gap-3 border text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-cyan-400/70 ${
+            className={`flex items-center gap-3 border text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent/70 ${
               compact
-                ? `shrink-0 border-transparent px-3 py-2 ${active ? "bg-zinc-800 text-zinc-50" : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"}`
-                : `w-full px-3 py-2.5 text-left ${active ? "border-zinc-700 bg-zinc-800 text-zinc-50" : "border-transparent text-zinc-400 hover:border-zinc-800 hover:bg-zinc-900 hover:text-zinc-200"}`
+                ? `shrink-0 border-transparent px-3 py-2 ${active ? "bg-panel text-foreground" : "text-muted hover:bg-hover hover:text-foreground"}`
+                : `w-full px-3 py-2.5 text-left ${active ? "border-line-strong bg-panel text-foreground" : "border-transparent text-muted hover:border-line hover:bg-hover hover:text-foreground"}`
             }`}
             key={item.label}
             type="button"
@@ -52,17 +53,17 @@ function Navigation({ compact = false }: { compact?: boolean }) {
 
 function Sidebar() {
   return (
-    <aside className="hidden w-64 shrink-0 flex-col border-r border-zinc-800 bg-zinc-950 md:flex">
-      <div className="flex h-16 items-center border-b border-zinc-800 px-6">
+    <aside className="hidden w-64 shrink-0 flex-col border-r border-line bg-surface md:flex">
+      <div className="flex h-16 items-center border-b border-line px-6">
         <Brand />
       </div>
       <div className="flex flex-1 flex-col px-3 py-6">
-        <p className="px-3 pb-3 text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500">
+        <p className="px-3 pb-3 text-[11px] font-medium uppercase tracking-[0.16em] text-muted">
           Workspace
         </p>
         <Navigation />
       </div>
-      <div className="border-t border-zinc-800 px-6 py-5 text-xs leading-5 text-zinc-500">
+      <div className="border-t border-line px-6 py-5 text-xs leading-5 text-muted">
         Build fluency, one concept at a time.
       </div>
     </aside>
@@ -72,16 +73,14 @@ function Sidebar() {
 function Header() {
   return (
     <>
-      <header className="flex h-16 items-center justify-between border-b border-zinc-800 bg-zinc-950/90 px-5 sm:px-8">
+      <header className="flex h-16 items-center justify-between gap-4 border-b border-line bg-surface px-5 sm:px-8">
         <div className="md:hidden">
           <Brand />
         </div>
-        <p className="hidden text-sm font-medium text-zinc-300 md:block">Dashboard</p>
-        <span className="border border-zinc-800 px-2.5 py-1 text-xs font-medium text-zinc-400">
-          Learning mode
-        </span>
+        <p className="hidden text-sm font-medium text-muted md:block">Dashboard</p>
+        <HeaderControls />
       </header>
-      <div className="border-b border-zinc-800 bg-zinc-950 md:hidden">
+      <div className="border-b border-line bg-surface md:hidden">
         <Navigation compact />
       </div>
     </>
@@ -90,7 +89,7 @@ function Header() {
 
 export function ApplicationShell({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-screen bg-zinc-950 text-zinc-100">
+    <div className="flex min-h-screen bg-surface text-foreground">
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <Header />
