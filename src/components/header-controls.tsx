@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { ThemeToggle } from "./theme-toggle";
 
 const profileItems = ["Profile", "Settings", "Sign out"];
 
@@ -9,15 +10,6 @@ function SearchIcon() {
     <svg aria-hidden="true" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
       <circle cx="11" cy="11" r="6" />
       <path d="m16 16 4 4" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function ThemeIcon() {
-  return (
-    <svg aria-hidden="true" className="size-4" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7" viewBox="0 0 24 24">
-      <path d="M12 3v2m0 14v2M3 12h2m14 0h2M5.64 5.64l1.42 1.42m9.88 9.88 1.42 1.42m0-12.68-1.42 1.42m-9.88 9.88-1.42 1.42" />
-      <circle cx="12" cy="12" r="4" />
     </svg>
   );
 }
@@ -49,12 +41,10 @@ export function HeaderControls() {
     };
   }, []);
 
-  function toggleTheme() {
-    const root = document.documentElement;
-    const nextTheme = root.dataset.theme === "light" ? "dark" : "light";
-    root.dataset.theme = nextTheme;
-    root.style.colorScheme = nextTheme;
-    localStorage.setItem("codetrail-theme", nextTheme);
+  function handleBlur(event: React.FocusEvent<HTMLDivElement>) {
+    if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+      setProfileOpen(false);
+    }
   }
 
   return (
@@ -64,14 +54,8 @@ export function HeaderControls() {
         <span className="sr-only">Search CodeTrail</span>
         <input className="min-w-0 flex-1 bg-transparent text-sm text-foreground placeholder:text-muted focus:outline-none" placeholder="Search algorithms, problems..." type="search" />
       </label>
-      <span className="border border-line px-2.5 py-1 text-xs font-medium text-muted">
-        <span className="hidden sm:inline">Learning mode</span>
-        <span className="sm:hidden">Mode</span>
-      </span>
-      <button aria-label="Toggle color theme" className="grid size-9 place-items-center border border-line bg-panel text-muted outline-none transition-colors hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-accent/70" onClick={toggleTheme} type="button">
-        <ThemeIcon />
-      </button>
-      <div ref={profileRef} className="relative">
+      <ThemeToggle />
+      <div className="relative" onBlur={handleBlur} ref={profileRef}>
         <button aria-controls="profile-menu" aria-expanded={profileOpen} aria-haspopup="menu" aria-label="Open profile placeholder menu" className="grid size-9 place-items-center rounded-full border border-line-strong bg-panel text-xs font-semibold text-foreground outline-none transition-colors hover:bg-hover focus-visible:ring-2 focus-visible:ring-accent/70" onClick={() => setProfileOpen((open) => !open)} ref={profileButtonRef} type="button">
           C
         </button>

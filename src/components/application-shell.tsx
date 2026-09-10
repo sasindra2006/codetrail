@@ -1,50 +1,68 @@
+"use client";
+
 import type { ReactNode } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { BrandMark } from "./brand-mark";
 import { HeaderControls } from "./header-controls";
 import { type IconName, NavigationIcon } from "./navigation-icon";
 
-const navigationItems: ReadonlyArray<{ label: string; icon: IconName }> = [
-  { label: "Dashboard", icon: "dashboard" },
-  { label: "Algorithms", icon: "algorithms" },
-  { label: "Problems", icon: "problems" },
-  { label: "Analytics", icon: "analytics" },
-  { label: "AI Tutor", icon: "tutor" },
+const navigationItems: ReadonlyArray<{
+  label: string;
+  href: string;
+  icon: IconName;
+}> = [
+  { label: "Dashboard", href: "/dashboard", icon: "dashboard" },
+  { label: "Algorithms", href: "/algorithms", icon: "algorithms" },
+  { label: "Problems", href: "/problems", icon: "problems" },
+  { label: "Analytics", href: "/analytics", icon: "analytics" },
+  { label: "AI Tutor", href: "/tutor", icon: "tutor" },
 ];
 
 function Brand() {
   return (
-    <div className="flex items-center gap-3">
+    <Link
+      aria-label="CodeTrail dashboard"
+      className="flex items-center gap-3 outline-none focus-visible:ring-2 focus-visible:ring-accent/70"
+      href="/dashboard"
+    >
       <BrandMark />
       <span className="text-sm font-semibold tracking-tight text-foreground">
         CodeTrail
       </span>
-    </div>
+    </Link>
   );
 }
 
+function isNavigationItemActive(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 function Navigation({ compact = false }: { compact?: boolean }) {
+  const pathname = usePathname();
+
   return (
     <nav
       aria-label="Primary navigation"
       className={compact ? "flex gap-1 overflow-x-auto px-4 py-2" : "space-y-1"}
     >
-      {navigationItems.map((item, index) => {
-        const active = index === 0;
+      {navigationItems.map((item) => {
+        const active = isNavigationItemActive(pathname, item.href);
 
         return (
-          <button
+          <Link
             aria-current={active ? "page" : undefined}
             className={`flex items-center gap-3 border text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent/70 ${
               compact
                 ? `shrink-0 border-transparent px-3 py-2 ${active ? "bg-panel text-foreground" : "text-muted hover:bg-hover hover:text-foreground"}`
                 : `w-full px-3 py-2.5 text-left ${active ? "border-line-strong bg-panel text-foreground" : "border-transparent text-muted hover:border-line hover:bg-hover hover:text-foreground"}`
             }`}
+            href={item.href}
             key={item.label}
-            type="button"
           >
             <NavigationIcon name={item.icon} />
             {item.label}
-          </button>
+          </Link>
         );
       })}
     </nav>
@@ -71,13 +89,23 @@ function Sidebar() {
 }
 
 function Header() {
+  const pathname = usePathname();
+  const currentSection =
+    navigationItems.find((item) => isNavigationItemActive(pathname, item.href))
+      ?.label ?? "Workspace";
+
   return (
     <>
       <header className="flex h-16 items-center justify-between gap-4 border-b border-line bg-surface px-5 sm:px-8">
-        <div className="md:hidden">
+        <div className="flex min-w-0 items-center gap-3 md:hidden">
           <Brand />
+          <span className="truncate border-l border-line pl-3 text-sm font-medium text-muted">
+            {currentSection}
+          </span>
         </div>
-        <p className="hidden text-sm font-medium text-muted md:block">Dashboard</p>
+        <p className="hidden text-sm font-medium text-muted md:block">
+          {currentSection}
+        </p>
         <HeaderControls />
       </header>
       <div className="border-b border-line bg-surface md:hidden">

@@ -2,7 +2,7 @@ export function BrandMark() {
   return (
     <span
       aria-hidden="true"
-      className="grid size-8 shrink-0 place-items-center border border-cyan-400/30 bg-cyan-400/10 text-cyan-300"
+      className="grid size-8 shrink-0 place-items-center border border-accent/30 bg-accent/10 text-accent"
     >
       <svg
         viewBox="0 0 24 24"
