@@ -26,7 +26,7 @@ export const internalProblems: InternalProblem[] = [
     constraints: ["2 ≤ n ≤ 100,000", "−1,000,000,000 ≤ values[i], target ≤ 1,000,000,000", "Exactly one valid pair exists."],
     samples: [
       { name: "Example 1", input: "4\n2 7 11 15\n9\n", expectedOutput: "1 2\n" },
-      { name: "Example 2", input: "5\n3 2 4 8 6\n10\n", expectedOutput: "3 5\n" },
+      { name: "Example 2", input: "5\n3 2 4 1 6\n10\n", expectedOutput: "3 5\n" },
     ],
     explanation: "In the first example, the values at positions 1 and 2 sum to 9. In the second, 4 and 6 are at positions 3 and 5.",
     starterCode: `#include <iostream>

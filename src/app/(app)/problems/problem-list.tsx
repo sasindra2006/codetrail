@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -103,7 +103,7 @@ export function ProblemList() {
       <section className="flex flex-col gap-4" aria-labelledby="codetrail-problems-heading">
         <div className="flex items-end justify-between gap-3">
           <div><p className="text-xs font-medium uppercase tracking-[0.16em] text-accent">Solve in CodeTrail</p><h2 className="mt-1 text-lg font-semibold text-foreground" id="codetrail-problems-heading">Practice problems</h2></div>
-          <span className="text-xs text-muted">C++17 Â· Sample runs</span>
+          <span className="text-xs text-muted">C++17 · Sample runs</span>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {internalProblems.map((problem) => <Link className="group flex min-h-36 flex-col justify-between border border-line bg-panel p-4 outline-none transition-colors hover:border-line-strong hover:bg-hover focus-visible:ring-2 focus-visible:ring-accent" href={`/problems/${problem.slug}`} key={problem.slug} rel="noopener noreferrer" target="_blank">

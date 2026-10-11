@@ -27,8 +27,13 @@ function byteLength(value: string) {
   return new TextEncoder().encode(value).byteLength;
 }
 
-function outputText(value: unknown) {
-  return typeof value === "string" ? value.slice(0, 8_000) : "";
+function decodeBase64(value: unknown) {
+  if (typeof value !== "string" || !value) return "";
+  try {
+    return Buffer.from(value, "base64").toString("utf-8");
+  } catch {
+    return "";
+  }
 }
 
 function normalizedOutput(value: string) {
@@ -40,7 +45,7 @@ function statusId(result: Judge0Submission) {
 }
 
 async function readSubmission(baseUrl: string, token: string, headers: HeadersInit): Promise<Judge0Submission | null> {
-  const response = await fetch(`${baseUrl}/submissions/${encodeURIComponent(token)}?base64_encoded=false`, {
+  const response = await fetch(`${baseUrl}/submissions/${encodeURIComponent(token)}?base64_encoded=true`, {
     headers,
     cache: "no-store",
     signal: AbortSignal.timeout(8_000),
@@ -68,7 +73,7 @@ async function executeSample(
         stdin: input,
         cpu_time_limit: 2,
         cpu_extra_time: 0.5,
-        wall_time_limit: 5_000,
+        wall_time_limit: 5,
         memory_limit: 128_000,
         stack_limit: 64_000,
         max_file_size: 1_024,
@@ -76,7 +81,20 @@ async function executeSample(
       cache: "no-store",
       signal: AbortSignal.timeout(8_000),
     });
-    if (!created.ok) return { passed: false, actualOutput: "", error: "Judge0 could not accept this sample right now." };
+    if (!created.ok) {
+      const responseText = await created.text().catch(() => "");
+      console.error("[Judge0] Submission rejected", {
+        status: created.status,
+        statusText: created.statusText,
+        response: responseText.slice(0, 1000),
+      });
+
+      return {
+        passed: false,
+        actualOutput: "",
+        error: `Judge0 rejected the submission (HTTP ${created.status}). Check the dev server terminal.`,
+      };
+    }
 
     const createdResult: unknown = await created.json();
     const token = typeof createdResult === "object" && createdResult !== null
@@ -95,16 +113,19 @@ async function executeSample(
       if (id !== null && id >= 3) break;
     }
 
-    const actualOutput = outputText(result?.stdout);
+    const actualOutput = decodeBase64(result?.stdout).slice(0, 8_000);
+    const compileOutput = decodeBase64(result?.compile_output).slice(0, 8_000);
+    const stderr = decodeBase64(result?.stderr).slice(0, 8_000);
+    const message = decodeBase64(result?.message).slice(0, 8_000);
     const id = result ? statusId(result) : null;
     if (id === null || id < 3) {
       return { passed: false, actualOutput, error: "This sample exceeded the execution wait limit. Try again shortly." };
     }
     if (id === 6) {
-      return { passed: false, actualOutput, error: outputText(result?.compile_output) || "Compilation failed." };
+      return { passed: false, actualOutput, error: compileOutput || "Compilation failed." };
     }
     if (id !== 3 && id !== 4) {
-      const details = outputText(result?.stderr) || outputText(result?.message);
+      const details = stderr || message;
       return { passed: false, actualOutput, error: details || (typeof result?.status?.description === "string" ? result.status.description : "The program did not finish successfully.") };
     }
 
@@ -112,7 +133,7 @@ async function executeSample(
     return {
       passed,
       actualOutput,
-      error: passed ? null : id === 4 ? "Output did not match the expected result." : "Output did not match the expected result.",
+      error: passed ? null : "Output did not match the expected result.",
     };
   } catch {
     return { passed: false, actualOutput: "", error: "The execution service did not respond in time. Please try again." };
