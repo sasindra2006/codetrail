@@ -88,40 +88,50 @@ function Sidebar() {
   );
 }
 
-function Header() {
+function Header({ showNavigation = true }: { showNavigation?: boolean }) {
   const pathname = usePathname();
+  const isProblemDetail = /^\/problems\/[^/]+$/.test(pathname);
   const currentSection =
     navigationItems.find((item) => isNavigationItemActive(pathname, item.href))
       ?.label ?? "Workspace";
 
   return (
     <>
-      <header className="flex h-16 items-center justify-between gap-4 border-b border-line bg-surface px-5 sm:px-8">
+      <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-line bg-surface px-5 sm:px-8">
         <div className="flex min-w-0 items-center gap-3 md:hidden">
           <Brand />
           <span className="truncate border-l border-line pl-3 text-sm font-medium text-muted">
             {currentSection}
           </span>
         </div>
-        <p className="hidden text-sm font-medium text-muted md:block">
-          {currentSection}
-        </p>
+        <div className="hidden min-w-0 items-center gap-3 md:flex">
+          {isProblemDetail ? <><Brand /><span aria-hidden="true" className="h-5 border-l border-line" /><p className="truncate text-sm font-medium text-muted">{currentSection}</p></> : <p className="truncate text-sm font-medium text-muted">{currentSection}</p>}
+        </div>
         <HeaderControls />
       </header>
-      <div className="border-b border-line bg-surface md:hidden">
+      {showNavigation && <div className="border-b border-line bg-surface md:hidden">
         <Navigation compact />
-      </div>
+      </div>}
     </>
   );
 }
 
 export function ApplicationShell({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const isProblemDetail = /^\/problems\/[^/]+$/.test(pathname);
+  const shellClass = isProblemDetail
+    ? "flex h-dvh min-h-0 overflow-hidden bg-surface text-foreground max-lg:h-auto max-lg:min-h-dvh max-lg:overflow-visible"
+    : "flex min-h-screen bg-surface text-foreground";
+  const mainClass = isProblemDetail
+    ? "flex min-h-0 flex-1 overflow-hidden px-5 py-4 sm:px-8 lg:px-8 max-lg:overflow-visible max-lg:py-5"
+    : "flex flex-1 px-5 py-10 sm:px-8 sm:py-14 lg:px-12";
+
   return (
-    <div className="flex min-h-screen bg-surface text-foreground">
-      <Sidebar />
+    <div className={shellClass}>
+      {!isProblemDetail && <Sidebar />}
       <div className="flex min-w-0 flex-1 flex-col">
-        <Header />
-        <main className="flex flex-1 px-5 py-10 sm:px-8 sm:py-14 lg:px-12">
+        <Header showNavigation={!isProblemDetail} />
+        <main className={mainClass}>
           {children}
         </main>
       </div>

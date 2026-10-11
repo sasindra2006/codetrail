@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "dockview-react/dist/styles/dockview.css";
 
 :root {
   --background: #09090b;
@@ -60,4 +61,77 @@ html[data-theme="light"] .theme-toggle-sun {
 
 html[data-theme="light"] .theme-toggle-moon {
   display: block;
+}
+
+.dockview-theme-codetrail {
+  --dv-group-view-background-color: var(--panel);
+  --dv-paneview-header-background-color: var(--surface);
+  --dv-tabs-and-actions-container-background-color: var(--surface);
+  --dv-activegroup-visiblepanel-tab-background-color: var(--panel);
+  --dv-activegroup-visiblepanel-tab-color: var(--foreground);
+  --dv-activegroup-hiddenpanel-tab-background-color: var(--surface);
+  --dv-activegroup-hiddenpanel-tab-color: var(--muted);
+  --dv-inactivegroup-visiblepanel-tab-background-color: var(--panel);
+  --dv-inactivegroup-visiblepanel-tab-color: var(--foreground);
+  --dv-inactivegroup-hiddenpanel-tab-background-color: var(--surface);
+  --dv-inactivegroup-hiddenpanel-tab-color: var(--muted);
+  --dv-tab-divider-color: var(--line);
+  --dv-separator-border: 1px solid var(--line);
+  --dv-sash-color: var(--line-strong);
+  --dv-active-sash-color: var(--accent);
+  --dv-drag-over-background-color: color-mix(in srgb, var(--accent) 16%, transparent);
+  --dv-drag-over-border-color: var(--accent);
+  --dv-drag-over-border: 1px solid var(--accent);
+  --dv-dnd-compass-cell-color: color-mix(in srgb, var(--accent) 18%, transparent);
+  --dv-dnd-compass-edge-cell-color: color-mix(in srgb, var(--accent) 12%, transparent);
+  --dv-dnd-compass-active-cell-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  --dv-edge-dock-indicator-color: var(--accent);
+  --dv-smart-guides-color: var(--accent);
+  --dv-smart-guides-preview-color: color-mix(in srgb, var(--accent) 18%, transparent);
+  --dv-icon-hover-background-color: var(--hover);
+  --dv-border-radius: 0;
+  color: var(--foreground);
+}
+
+.dockview-theme-codetrail .dv-groupview {
+  border: 1px solid var(--line);
+}
+
+.dockview-theme-codetrail .dv-tabs-and-actions-container {
+  border-bottom: 1px solid var(--line);
+}
+
+.problem-description-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) var(--surface);
+}
+
+html[data-theme="light"] .problem-description-scrollbar,
+html[data-theme="dark"] .problem-description-scrollbar {
+  scrollbar-color: var(--line-strong) var(--surface);
+}
+
+.problem-description-scrollbar::-webkit-scrollbar {
+  width: 10px;
+}
+
+.problem-description-scrollbar::-webkit-scrollbar-track {
+  background: var(--surface);
+}
+
+.problem-description-scrollbar::-webkit-scrollbar-thumb {
+  border: 2px solid var(--surface);
+  border-radius: 6px;
+  background-color: var(--line-strong);
+}
+
+.problem-description-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: var(--muted);
+}
+
+.problem-mobile { display: none; }
+
+@media (max-width: 1023px) {
+  .problem-dockview { display: none; }
+  .problem-mobile { display: flex; }
 }
