@@ -25,12 +25,17 @@ export default async function AlgorithmPage({ params }: PageProps<"/algorithms/[
         </div>
       </header>
 
-      <AlgorithmVisualizer key={algorithm.slug} algorithm={algorithm.visualizer} />
-
-      <section aria-label={`${algorithm.name} explanation and complexity`} className="grid gap-px border border-line bg-line sm:grid-cols-2 lg:grid-cols-5">
-        <div className="bg-panel p-5 sm:col-span-2"><p className="text-xs font-medium uppercase tracking-wider text-muted">How it works</p><p className="mt-2 text-sm leading-6 text-foreground">{algorithm.explanation}</p></div>
-        {[["Best case", algorithm.bestCase], ["Average case", algorithm.averageCase], ["Worst case", algorithm.worstCase], ["Auxiliary space", algorithm.spaceComplexity]].map(([label, value]) => <div className="bg-panel p-5" key={label}><p className="text-xs font-medium uppercase tracking-wider text-muted">{label}</p><p className="mt-2 font-mono text-lg text-foreground">{value}</p></div>)}
+      <section aria-label={`${algorithm.name} explanation and complexity`} className="border border-line bg-panel">
+        <div className="p-5 sm:p-6">
+          <h2 className="text-xs font-medium uppercase tracking-wider text-muted">How it works</h2>
+          <p className="mt-2 max-w-4xl text-sm leading-6 text-foreground">{algorithm.explanation}</p>
+        </div>
+        <dl className="grid grid-cols-2 border-t border-line sm:grid-cols-4">
+          {[['Best case', algorithm.bestCase], ['Average case', algorithm.averageCase], ['Worst case', algorithm.worstCase], ['Auxiliary space', algorithm.spaceComplexity]].map(([label, value]) => <div className="border-r border-line p-4 last:border-r-0 sm:p-5" key={label}><dt className="text-xs font-medium uppercase tracking-wider text-muted">{label}</dt><dd className="mt-2 font-mono text-lg text-foreground">{value}</dd></div>)}
+        </dl>
       </section>
+
+      <AlgorithmVisualizer key={algorithm.slug} algorithm={algorithm.visualizer} pseudocode={algorithm.pseudocode} />
     </section>
   );
 }

@@ -18,6 +18,7 @@ export function executeBubbleSort(input: readonly number[]): AlgorithmExecutionS
 
       steps.push({
         type: "comparison",
+        lineId: "bubble.compare",
         array: [...array],
         sortedIndices: [...sortedIndices],
         indices: [index, nextIndex],
@@ -27,6 +28,7 @@ export function executeBubbleSort(input: readonly number[]): AlgorithmExecutionS
         [array[index], array[nextIndex]] = [array[nextIndex], array[index]];
         steps.push({
           type: "swap",
+          lineId: "bubble.swap",
           array: [...array],
           sortedIndices: [...sortedIndices],
           indices: [index, nextIndex],
@@ -37,6 +39,7 @@ export function executeBubbleSort(input: readonly number[]): AlgorithmExecutionS
     sortedIndices.unshift(end);
     steps.push({
       type: "mark-sorted",
+      lineId: "bubble.mark-sorted",
       array: [...array],
       sortedIndices: [...sortedIndices],
       index: end,
@@ -47,6 +50,7 @@ export function executeBubbleSort(input: readonly number[]): AlgorithmExecutionS
     sortedIndices.unshift(0);
     steps.push({
       type: "mark-sorted",
+      lineId: "bubble.mark-first",
       array: [...array],
       sortedIndices: [...sortedIndices],
       index: 0,
@@ -55,6 +59,7 @@ export function executeBubbleSort(input: readonly number[]): AlgorithmExecutionS
 
   steps.push({
     type: "complete",
+    lineId: "bubble.return",
     array: [...array],
     sortedIndices: [...sortedIndices],
   });

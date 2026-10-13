@@ -18,6 +18,7 @@ export function executeSelectionSort(
     for (let index = start + 1; index < array.length; index += 1) {
       steps.push({
         type: "comparison",
+        lineId: "selection.compare",
         array: [...array],
         sortedIndices: [...sortedIndices],
         indices: [minIndex, index],
@@ -25,14 +26,30 @@ export function executeSelectionSort(
 
       if (array[index] < array[minIndex]) {
         minIndex = index;
+        steps.push({
+          type: "minimum-update",
+          lineId: "selection.minimum-update",
+          array: [...array],
+          sortedIndices: [...sortedIndices],
+          index: minIndex,
+        });
       }
     }
+
+    steps.push({
+      type: "decision",
+      lineId: "selection.swap-condition",
+      array: [...array],
+      sortedIndices: [...sortedIndices],
+      indices: [start, minIndex],
+    });
 
     if (minIndex !== start) {
       [array[start], array[minIndex]] = [array[minIndex], array[start]];
 
       steps.push({
         type: "swap",
+        lineId: "selection.swap",
         array: [...array],
         sortedIndices: [...sortedIndices],
         indices: [start, minIndex],
@@ -43,6 +60,7 @@ export function executeSelectionSort(
 
     steps.push({
       type: "mark-sorted",
+      lineId: "selection.mark-sorted",
       array: [...array],
       sortedIndices: [...sortedIndices],
       index: start,
@@ -54,6 +72,7 @@ export function executeSelectionSort(
 
     steps.push({
       type: "mark-sorted",
+      lineId: "selection.mark-last",
       array: [...array],
       sortedIndices: [...sortedIndices],
       index: array.length - 1,
@@ -62,6 +81,7 @@ export function executeSelectionSort(
 
   steps.push({
     type: "complete",
+    lineId: "selection.return",
     array: [...array],
     sortedIndices: [...sortedIndices],
   });

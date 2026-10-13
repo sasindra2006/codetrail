@@ -6,6 +6,7 @@ import { executeBubbleSort } from "@/lib/algorithms/bubble-sort";
 import { executeSelectionSort } from "@/lib/algorithms/selection-sort";
 import { executeInsertionSort } from "@/lib/algorithms/insertion-sort";
 import type { AlgorithmExecutionStep } from "@/lib/algorithms/execution";
+import type { PseudocodeLine } from "@/lib/algorithms/execution";
 
 const STARTING_ARRAY = [42, 17, 68, 9, 31, 54, 23];
 const STEP_INTERVAL_MS = 650;
@@ -27,6 +28,9 @@ function describeStep(
   if (step.type === "comparison") {
     return `Comparing ${step.array[step.indices[0]]} and ${step.array[step.indices[1]]}.`;
   }
+
+  if (step.type === "decision") return `Checking whether the minimum at index ${step.indices[1]} needs to move to index ${step.indices[0]}.`;
+  if (step.type === "minimum-update") return `${step.array[step.index]} is the new minimum.`;
 
   if (step.type === "swap") {
     return `Swapped ${step.array[step.indices[0]]} and ${step.array[step.indices[1]]}.`;
@@ -95,8 +99,9 @@ function ArrayBars({
   const maxValue = Math.max(...values);
   const valueRange = maxValue - minValue;
 
-  const activeIndices: readonly number[] = step && (step.type === "comparison" || step.type === "swap")
+  const activeIndices: readonly number[] = step && (step.type === "comparison" || step.type === "decision" || step.type === "swap")
     ? step.indices
+    : step?.type === "minimum-update" ? [step.index]
     : step?.type === "shift" ? [step.from, step.to]
       : step?.type === "key" || step?.type === "insert" ? [step.index] : [];
   const keyValue = step && (step.type === "key" || step.type === "shift" || step.type === "insert") ? step.key : undefined;
@@ -192,7 +197,7 @@ function ControlButton({
   );
 }
 
-export function AlgorithmVisualizer({ algorithm = "bubble" }: { algorithm?: SortingAlgorithm }) {
+export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algorithm?: SortingAlgorithm; pseudocode: readonly PseudocodeLine[] }) {
   const [input, setInput] = useState<readonly number[]>(STARTING_ARRAY);
   const [inputText, setInputText] = useState(STARTING_ARRAY.join(", "));
   const [inputError, setInputError] = useState<string | null>(null);
@@ -249,6 +254,28 @@ export function AlgorithmVisualizer({ algorithm = "bubble" }: { algorithm?: Sort
   }
 
   return (
+    <div className="flex min-w-0 flex-col gap-8">
+    <section aria-labelledby="algorithm-pseudocode-heading" className="min-w-0 overflow-hidden border border-line bg-panel">
+      <div className="border-b border-line px-5 py-4 sm:px-6">
+        <h2 className="text-sm font-semibold text-foreground" id="algorithm-pseudocode-heading">Pseudocode</h2>
+        <p className="mt-1 text-xs text-muted">Language-independent outline. The highlighted line matches the current step.</p>
+      </div>
+      <ol aria-label={`${algorithm} sort pseudocode`} className="max-w-full overflow-x-auto p-3 font-mono text-sm leading-6 sm:p-4">
+        {pseudocode.map((line, index) => {
+          const active = currentStep?.lineId === line.id;
+          return (
+            <li
+              aria-current={active ? "step" : undefined}
+              className={`flex min-w-max items-baseline gap-4 border-l-2 px-3 py-0.5 ${active ? "border-accent bg-accent/15 text-foreground" : "border-transparent text-muted"}`}
+              key={line.id}
+            >
+              <span aria-hidden="true" className="w-5 shrink-0 select-none text-right text-xs text-muted">{index + 1}</span>
+              <span className="whitespace-pre">{line.text}</span>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
     <section
       aria-label={`${algorithm === "bubble" ? "Bubble" : algorithm === "selection" ? "Selection" : "Insertion"} sort visualizer`}
       className="border border-line bg-panel"
@@ -429,5 +456,6 @@ export function AlgorithmVisualizer({ algorithm = "bubble" }: { algorithm?: Sort
         </div>
       </div>
     </section>
+    </div>
   );
 }
