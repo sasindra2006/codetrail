@@ -11,7 +11,10 @@ export default async function AlgorithmPage({ params }: PageProps<"/algorithms/[
   return (
     <section className="mx-auto flex w-full max-w-6xl flex-col gap-8">
       <header className="flex flex-col gap-3">
-        <Link className="w-fit text-xs font-medium uppercase tracking-[0.2em] text-accent hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent" href="/algorithms">Algorithm catalogue</Link>
+        <Link className="group inline-flex w-fit items-center gap-2 text-sm font-medium text-muted outline-none transition-colors hover:text-accent focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel" href="/algorithms">
+          <svg aria-hidden="true" className="size-4 transition-transform group-hover:-translate-x-0.5" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="m14 18-6-6 6-6M8 12h12" /></svg>
+          All algorithms
+        </Link>
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted">{algorithm.category}</p>
@@ -24,10 +27,9 @@ export default async function AlgorithmPage({ params }: PageProps<"/algorithms/[
 
       <AlgorithmVisualizer key={algorithm.slug} algorithm={algorithm.visualizer} />
 
-      <section aria-label={`${algorithm.name} explanation and complexity`} className="grid gap-px border border-line bg-line sm:grid-cols-2 lg:grid-cols-3">
-        <div className="bg-panel p-5 sm:col-span-2 lg:col-span-1"><p className="text-xs font-medium uppercase tracking-wider text-muted">How it works</p><p className="mt-2 text-sm leading-6 text-foreground">{algorithm.explanation}</p></div>
-        <div className="bg-panel p-5"><p className="text-xs font-medium uppercase tracking-wider text-muted">Time complexity</p><p className="mt-2 font-mono text-lg text-foreground">{algorithm.timeComplexity}</p><p className="mt-1 text-xs text-muted">Average and worst case</p></div>
-        <div className="bg-panel p-5"><p className="text-xs font-medium uppercase tracking-wider text-muted">Space complexity</p><p className="mt-2 font-mono text-lg text-foreground">{algorithm.spaceComplexity}</p><p className="mt-1 text-xs text-muted">Auxiliary space</p></div>
+      <section aria-label={`${algorithm.name} explanation and complexity`} className="grid gap-px border border-line bg-line sm:grid-cols-2 lg:grid-cols-5">
+        <div className="bg-panel p-5 sm:col-span-2"><p className="text-xs font-medium uppercase tracking-wider text-muted">How it works</p><p className="mt-2 text-sm leading-6 text-foreground">{algorithm.explanation}</p></div>
+        {[["Best case", algorithm.bestCase], ["Average case", algorithm.averageCase], ["Worst case", algorithm.worstCase], ["Auxiliary space", algorithm.spaceComplexity]].map(([label, value]) => <div className="bg-panel p-5" key={label}><p className="text-xs font-medium uppercase tracking-wider text-muted">{label}</p><p className="mt-2 font-mono text-lg text-foreground">{value}</p></div>)}
       </section>
     </section>
   );

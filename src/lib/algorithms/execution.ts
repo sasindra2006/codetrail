@@ -2,6 +2,9 @@ export type AlgorithmExecutionStep =
   | ComparisonStep
   | SwapStep
   | MarkSortedStep
+  | KeyStep
+  | ShiftStep
+  | InsertStep
   | CompleteStep;
 
 type StepSnapshot = {
@@ -24,5 +27,9 @@ export type MarkSortedStep = StepSnapshot & {
   type: "mark-sorted";
   index: number;
 };
+
+export type KeyStep = StepSnapshot & { type: "key"; key: number; index: number };
+export type ShiftStep = StepSnapshot & { type: "shift"; key: number; keyIndex: number; from: number; to: number };
+export type InsertStep = StepSnapshot & { type: "insert"; key: number; index: number };
 
 export type CompleteStep = StepSnapshot & { type: "complete" };

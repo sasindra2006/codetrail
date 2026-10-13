@@ -4,13 +4,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { executeBubbleSort } from "@/lib/algorithms/bubble-sort";
 import { executeSelectionSort } from "@/lib/algorithms/selection-sort";
+import { executeInsertionSort } from "@/lib/algorithms/insertion-sort";
 import type { AlgorithmExecutionStep } from "@/lib/algorithms/execution";
 
 const STARTING_ARRAY = [42, 17, 68, 9, 31, 54, 23];
 const STEP_INTERVAL_MS = 650;
 const MAX_ARRAY_SIZE = 20;
 
-export type SortingAlgorithm = "bubble" | "selection";
+export type SortingAlgorithm = "bubble" | "selection" | "insertion";
 
 function describeStep(
   step: AlgorithmExecutionStep | undefined,
@@ -18,9 +19,9 @@ function describeStep(
   algorithm: SortingAlgorithm,
 ) {
   if (!step) {
-    return algorithm === "bubble"
-      ? "Ready to compare adjacent values."
-      : "Ready to find the minimum value.";
+    if (algorithm === "bubble") return "Ready to compare adjacent values.";
+    if (algorithm === "selection") return "Ready to find the minimum value.";
+    return "Ready to insert each value into the sorted prefix.";
   }
 
   if (step.type === "comparison") {
@@ -35,7 +36,11 @@ function describeStep(
     return `${step.array[step.index]} is in its sorted position.`;
   }
 
-  return `Sort complete. All ${count} values are in order.`;
+  if (step.type === "key") return `Selected ${step.key} as the key to insert.`;
+  if (step.type === "shift") return `Shifted ${step.array[step.to]} from index ${step.from} to ${step.to}. The key ${step.key} is waiting to be inserted.`;
+  if (step.type === "insert") return `Inserted ${step.key} at index ${step.index}.`;
+
+  return `Sorting complete. All ${count} values are in order. Reset to run it again.`;
 }
 
 function shuffleArray(values: readonly number[]) {
@@ -90,10 +95,11 @@ function ArrayBars({
   const maxValue = Math.max(...values);
   const valueRange = maxValue - minValue;
 
-  const activeIndices: readonly number[] =
-    step && (step.type === "comparison" || step.type === "swap")
-      ? step.indices
-      : [];
+  const activeIndices: readonly number[] = step && (step.type === "comparison" || step.type === "swap")
+    ? step.indices
+    : step?.type === "shift" ? [step.from, step.to]
+      : step?.type === "key" || step?.type === "insert" ? [step.index] : [];
+  const keyValue = step && (step.type === "key" || step.type === "shift" || step.type === "insert") ? step.key : undefined;
 
   const swap = step?.type === "swap";
   const MIN_BAR_HEIGHT = 12;
@@ -116,7 +122,13 @@ function ArrayBars({
               ((value - minValue) / valueRange) *
                 (MAX_BAR_HEIGHT - MIN_BAR_HEIGHT);
 
-        const tone = sorted
+        const isKey = keyValue !== undefined && step?.type === "key" && index === step.index;
+        const shifting = step?.type === "shift" && activeIndices.includes(index);
+        const tone = isKey
+          ? "border-sky-400 bg-sky-400/20 text-foreground"
+          : shifting
+            ? "border-rose-500 bg-rose-500/20 text-foreground"
+          : sorted
           ? "border-emerald-500/70 bg-emerald-500/20 text-foreground"
           : swap && active
             ? "border-rose-500 bg-rose-500/20 text-foreground"
@@ -191,7 +203,9 @@ export function AlgorithmVisualizer({ algorithm = "bubble" }: { algorithm?: Sort
     () =>
       algorithm === "bubble"
         ? executeBubbleSort(input)
-        : executeSelectionSort(input),
+        : algorithm === "selection"
+          ? executeSelectionSort(input)
+          : executeInsertionSort(input),
     [algorithm, input],
   );
 
@@ -234,13 +248,9 @@ export function AlgorithmVisualizer({ algorithm = "bubble" }: { algorithm?: Sort
     }
   }
 
-  function advance() {
-    setStepCount((count) => Math.min(count + 1, steps.length));
-  }
-
   return (
     <section
-      aria-label={`${algorithm === "bubble" ? "Bubble" : "Selection"} sort visualizer`}
+      aria-label={`${algorithm === "bubble" ? "Bubble" : algorithm === "selection" ? "Selection" : "Insertion"} sort visualizer`}
       className="border border-line bg-panel"
     >
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-4 sm:px-6">
@@ -251,7 +261,9 @@ export function AlgorithmVisualizer({ algorithm = "bubble" }: { algorithm?: Sort
           <p className="mt-1 text-xs text-muted">
             {algorithm === "bubble"
               ? "Compare neighbors, then follow each pass."
-              : "Find the minimum remaining value on each pass."}
+              : algorithm === "selection"
+                ? "Find the minimum remaining value on each pass."
+                : "Hold each key, shift larger values, then insert it into the sorted prefix."}
           </p>
         </div>
 
@@ -325,14 +337,22 @@ export function AlgorithmVisualizer({ algorithm = "bubble" }: { algorithm?: Sort
           <span className="flex items-center gap-2">
             <i className="h-2.5 w-2.5 bg-amber-500" /> Comparing
           </span>
+          {algorithm === "insertion" ? <span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-sky-400" /> Active key</span> : null}
           <span className="flex items-center gap-2">
-            <i className="h-2.5 w-2.5 bg-rose-500" /> Swapping
+            <i className="h-2.5 w-2.5 bg-rose-500" /> {algorithm === "insertion" ? "Shifting" : "Swapping"}
           </span>
           <span className="flex items-center gap-2">
             <i className="h-2.5 w-2.5 bg-emerald-500" /> Sorted
           </span>
         </div>
 
+        <div aria-live="polite" className="mb-3 flex h-8 items-start">
+          {currentStep && (currentStep.type === "key" || currentStep.type === "shift") ? (
+            <p className="inline-flex border border-sky-400/60 bg-sky-400/10 px-3 py-1.5 font-mono text-xs text-foreground">
+              Active key: {currentStep.key}
+            </p>
+          ) : null}
+        </div>
         <ArrayBars values={values} step={currentStep} />
 
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
@@ -366,28 +386,38 @@ export function AlgorithmVisualizer({ algorithm = "bubble" }: { algorithm?: Sort
 
         <div className="mt-5 flex flex-wrap gap-2">
           <ControlButton
-            label="Start or play animation"
-            onClick={() => setPlaying(true)}
+            label={playing ? "Pause animation" : "Play animation"}
+            onClick={() => setPlaying((isPlaying) => !isPlaying)}
             primary
-            disabled={playing || complete}
+            disabled={complete}
           >
-            {stepCount === 0 ? "Start" : "Play"}
+            {playing ? (
+              <span className="inline-flex items-center gap-2"><svg aria-hidden="true" className="size-3.5" fill="currentColor" viewBox="0 0 16 16"><path d="M4 3h3v10H4zM9 3h3v10H9z" /></svg>Pause</span>
+            ) : (
+              <span className="inline-flex items-center gap-2"><svg aria-hidden="true" className="size-3.5" fill="currentColor" viewBox="0 0 16 16"><path d="M4 2.8v10.4L13 8z" /></svg>Play</span>
+            )}
           </ControlButton>
 
           <ControlButton
-            label="Pause animation"
-            onClick={() => setPlaying(false)}
-            disabled={!playing}
+            label="Previous step"
+            onClick={() => {
+              setPlaying(false);
+              setStepCount((count) => Math.max(count - 1, 0));
+            }}
+            disabled={stepCount === 0}
           >
-            Pause
+            Previous
           </ControlButton>
 
           <ControlButton
-            label="Advance one step"
-            onClick={advance}
-            disabled={playing || complete}
+            label="Next step"
+            onClick={() => {
+              setPlaying(false);
+              setStepCount((count) => Math.min(count + 1, steps.length));
+            }}
+            disabled={complete}
           >
-            Step
+            Next
           </ControlButton>
 
           <ControlButton
