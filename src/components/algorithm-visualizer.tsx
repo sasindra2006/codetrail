@@ -10,7 +10,8 @@ import type { PseudocodeLine } from "@/lib/algorithms/execution";
 
 const STARTING_ARRAY = [42, 17, 68, 9, 31, 54, 23];
 const STEP_INTERVAL_MS = 650;
-const MAX_ARRAY_SIZE = 20;
+const MIN_ARRAY_SIZE = 5;
+const MAX_ARRAY_SIZE = 10;
 
 export type SortingAlgorithm = "bubble" | "selection" | "insertion";
 
@@ -62,15 +63,23 @@ function shuffleArray(values: readonly number[]) {
   return shuffled;
 }
 
+function createRandomArray() {
+  const size = Math.floor(Math.random() * (MAX_ARRAY_SIZE - MIN_ARRAY_SIZE + 1)) + MIN_ARRAY_SIZE;
+
+  return Array.from({ length: size }, () =>
+    Math.floor(Math.random() * 201) - 100,
+  );
+}
+
 function parseArrayInput(value: string): number[] {
   const tokens = value.split(",").map((token) => token.trim());
 
   if (tokens.some((token) => token === "")) {
-    throw new Error("Enter integers separated by commas.");
+    throw new Error(`Enter ${MIN_ARRAY_SIZE} to ${MAX_ARRAY_SIZE} integers separated by commas.`);
   }
 
-  if (tokens.length > MAX_ARRAY_SIZE) {
-    throw new Error(`Enter no more than ${MAX_ARRAY_SIZE} numbers.`);
+  if (tokens.length < MIN_ARRAY_SIZE || tokens.length > MAX_ARRAY_SIZE) {
+    throw new Error(`Enter between ${MIN_ARRAY_SIZE} and ${MAX_ARRAY_SIZE} integers.`);
   }
 
   return tokens.map((token) => {
@@ -296,12 +305,22 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
 
         <div className="flex flex-wrap items-center gap-2">
           <button
-            aria-label="Shuffle array and restart visualization"
+            aria-label="Shuffle current values and restart visualization"
+            title="Rearrange the current values without changing them"
             className="min-h-10 border border-line-strong px-3 text-sm text-foreground outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-accent"
             onClick={() => reset(shuffleArray(input))}
             type="button"
           >
             Shuffle array
+          </button>
+          <button
+            aria-label="Generate a new random array and restart visualization"
+            title="Generate a new array with random integers"
+            className="min-h-10 border border-accent bg-accent px-3 text-sm font-medium text-accent-foreground outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel"
+            onClick={() => reset(createRandomArray())}
+            type="button"
+          >
+            Randomize
           </button>
         </div>
       </div>
@@ -346,7 +365,7 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
           </div>
 
           <p className="mt-2 text-xs text-muted" id="sorting-input-help">
-            Enter 1–{MAX_ARRAY_SIZE} integers separated by commas. Negative
+            Enter {MIN_ARRAY_SIZE}–{MAX_ARRAY_SIZE} integers separated by commas. Negative
             numbers and duplicates are allowed.
           </p>
 
