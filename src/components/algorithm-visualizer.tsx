@@ -1,12 +1,13 @@
 
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { executeBubbleSort } from "@/lib/algorithms/bubble-sort";
 import { executeSelectionSort } from "@/lib/algorithms/selection-sort";
 import { executeInsertionSort } from "@/lib/algorithms/insertion-sort";
 import type { AlgorithmExecutionStep } from "@/lib/algorithms/execution";
 import type { PseudocodeLine } from "@/lib/algorithms/execution";
+import { algorithmSourceCode, codeLanguages, type CodeLanguage } from "@/lib/algorithms/source-code";
 
 const STARTING_ARRAY = [42, 17, 68, 9, 31, 54, 23];
 const STEP_INTERVAL_MS = 650;
@@ -212,6 +213,43 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
   const [inputError, setInputError] = useState<string | null>(null);
   const [stepCount, setStepCount] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [language, setLanguage] = useState<CodeLanguage>("C++");
+  const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">("idle");
+  const languageButtonRef = useRef<HTMLButtonElement>(null);
+  const languageMenuRef = useRef<HTMLDivElement>(null);
+  const languageOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const pendingLanguageFocusIndex = useRef<number | null>(null);
+  const selectedLanguageIndex = codeLanguages.indexOf(language);
+  const sourceCode = algorithmSourceCode[algorithm][language];
+
+  useEffect(() => {
+    if (!languageMenuOpen) return;
+    function onPointerDown(event: PointerEvent) {
+      if (!languageMenuRef.current?.contains(event.target as Node) && !languageButtonRef.current?.contains(event.target as Node)) {
+        setLanguageMenuOpen(false);
+      }
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [languageMenuOpen]);
+
+  useEffect(() => {
+    if (!languageMenuOpen) return;
+    const index = pendingLanguageFocusIndex.current ?? selectedLanguageIndex;
+    pendingLanguageFocusIndex.current = null;
+    languageOptionRefs.current[index]?.focus();
+  }, [languageMenuOpen, selectedLanguageIndex]);
+
+  async function copySourceCode() {
+    try {
+      await navigator.clipboard.writeText(sourceCode);
+      setCopyStatus("copied");
+    } catch {
+      setCopyStatus("error");
+    }
+    window.setTimeout(() => setCopyStatus("idle"), 2000);
+  }
 
   const steps = useMemo(
     () =>
@@ -474,6 +512,82 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
           </ControlButton>
         </div>
       </div>
+    </section>
+    <section aria-labelledby="algorithm-code-heading" className="min-w-0 border border-line bg-panel">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3 sm:px-5">
+        <h2 className="text-sm font-semibold text-foreground" id="algorithm-code-heading">Implementation</h2>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative">
+            <button
+              aria-controls="algorithm-language-menu"
+              aria-expanded={languageMenuOpen}
+              aria-haspopup="listbox"
+              className="inline-flex min-h-9 items-center gap-2 border border-line-strong bg-surface px-3 text-sm font-medium text-foreground outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-accent"
+              onClick={() => setLanguageMenuOpen((open) => !open)}
+              onKeyDown={(event) => {
+                if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                  event.preventDefault();
+                  const offset = event.key === "ArrowDown" ? 1 : -1;
+                  pendingLanguageFocusIndex.current = (selectedLanguageIndex + offset + codeLanguages.length) % codeLanguages.length;
+                  setLanguageMenuOpen(true);
+                }
+              }}
+              ref={languageButtonRef}
+              type="button"
+            >
+              {language}<svg aria-hidden="true" className={`size-3.5 transition-transform ${languageMenuOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 16 16"><path d="m3 6 5 5 5-5" /></svg>
+            </button>
+            {languageMenuOpen ? (
+              <div className="absolute right-0 top-full z-20 mt-1 min-w-36 border border-line-strong bg-panel p-1 shadow-xl" id="algorithm-language-menu" ref={languageMenuRef}>
+                <div aria-label="Choose programming language" className="max-h-60 overflow-y-auto" role="listbox">
+                  {codeLanguages.map((option, index) => (
+                    <button
+                      aria-selected={option === language}
+                      className={`flex min-h-9 w-full items-center justify-between gap-4 px-3 text-left text-sm outline-none hover:bg-hover focus-visible:bg-hover ${option === language ? "text-accent" : "text-foreground"}`}
+                      key={option}
+                      onPointerDown={(event) => {
+                        event.stopPropagation();
+                        setLanguage(option);
+                        setLanguageMenuOpen(false);
+                        languageButtonRef.current?.focus();
+                      }}
+                      onClick={() => {
+                        setLanguage(option);
+                        setLanguageMenuOpen(false);
+                        languageButtonRef.current?.focus();
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === "Escape") {
+                          event.preventDefault();
+                          setLanguageMenuOpen(false);
+                          languageButtonRef.current?.focus();
+                        } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                          event.preventDefault();
+                          const direction = event.key === "ArrowDown" ? 1 : -1;
+                          languageOptionRefs.current[(index + direction + codeLanguages.length) % codeLanguages.length]?.focus();
+                        } else if (event.key === "Home" || event.key === "End") {
+                          event.preventDefault();
+                          languageOptionRefs.current[event.key === "Home" ? 0 : codeLanguages.length - 1]?.focus();
+                        }
+                      }}
+                      ref={(element) => { languageOptionRefs.current[index] = element; }}
+                      role="option"
+                      type="button"
+                    >
+                      {option}{option === language ? <svg aria-hidden="true" className="size-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 16 16"><path d="m3 8 3 3 7-7" /></svg> : null}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
+          <button aria-label="Copy implementation code" className="inline-flex min-h-9 items-center gap-2 border border-line-strong px-3 text-sm text-foreground outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-accent" onClick={copySourceCode} type="button">
+            {copyStatus === "copied" ? "Copied" : copyStatus === "error" ? "Copy failed" : <><svg aria-hidden="true" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 16 16"><rect height="10" rx="1" width="8" x="5" y="4" /><path d="M3 11V3h7" /></svg>Copy code</>}
+          </button>
+        </div>
+      </div>
+      <pre className="max-h-[32rem] min-h-64 overflow-auto p-4 font-mono text-xs leading-6 text-foreground sm:p-5 sm:text-sm"><code>{sourceCode}</code></pre>
+      <p aria-live="polite" className="sr-only">{copyStatus === "copied" ? "Code copied to clipboard." : copyStatus === "error" ? "Could not copy code to clipboard." : ""}</p>
     </section>
     </div>
   );

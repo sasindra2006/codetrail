@@ -1,0 +1,31 @@
+import type { SortingAlgorithm } from "@/components/algorithm-visualizer";
+
+export const codeLanguages = ["C", "C++", "Java", "Python", "Python3"] as const;
+export type CodeLanguage = (typeof codeLanguages)[number];
+
+type CodeByLanguage = Record<CodeLanguage, string>;
+type CodeByAlgorithm = Record<SortingAlgorithm, CodeByLanguage>;
+
+export const algorithmSourceCode: CodeByAlgorithm = {
+  bubble: {
+    C: `#include <stddef.h>\n\nvoid bubble_sort(int array[], size_t length) {\n    for (size_t end = length; end > 1; --end) {\n        for (size_t i = 0; i + 1 < end; ++i) {\n            if (array[i] > array[i + 1]) {\n                int temp = array[i];\n                array[i] = array[i + 1];\n                array[i + 1] = temp;\n            }\n        }\n    }\n}`,
+    "C++": `#include <vector>\n#include <utility>\n\nvoid bubbleSort(std::vector<int>& values) {\n    for (std::size_t end = values.size(); end > 1; --end) {\n        for (std::size_t i = 0; i + 1 < end; ++i) {\n            if (values[i] > values[i + 1]) {\n                std::swap(values[i], values[i + 1]);\n            }\n        }\n    }\n}`,
+    Java: `class Solution {\n    public void bubbleSort(int[] values) {\n        for (int end = values.length - 1; end > 0; end--) {\n            for (int i = 0; i < end; i++) {\n                if (values[i] > values[i + 1]) {\n                    int temp = values[i];\n                    values[i] = values[i + 1];\n                    values[i + 1] = temp;\n                }\n            }\n        }\n    }\n}`,
+    Python: `def bubble_sort(values):\n    for end in range(len(values) - 1, 0, -1):\n        for i in range(end):\n            if values[i] > values[i + 1]:\n                values[i], values[i + 1] = values[i + 1], values[i]\n    return values`,
+    Python3: `class Solution:\n    def bubbleSort(self, values: list[int]) -> list[int]:\n        for end in range(len(values) - 1, 0, -1):\n            for i in range(end):\n                if values[i] > values[i + 1]:\n                    values[i], values[i + 1] = values[i + 1], values[i]\n        return values`,
+  },
+  selection: {
+    C: `#include <stddef.h>\n\nvoid selection_sort(int array[], size_t length) {\n    for (size_t start = 0; start + 1 < length; ++start) {\n        size_t min_index = start;\n        for (size_t i = start + 1; i < length; ++i) {\n            if (array[i] < array[min_index]) min_index = i;\n        }\n        if (min_index != start) {\n            int temp = array[start];\n            array[start] = array[min_index];\n            array[min_index] = temp;\n        }\n    }\n}`,
+    "C++": `#include <vector>\n#include <utility>\n\nvoid selectionSort(std::vector<int>& values) {\n    for (std::size_t start = 0; start + 1 < values.size(); ++start) {\n        std::size_t minIndex = start;\n        for (std::size_t i = start + 1; i < values.size(); ++i) {\n            if (values[i] < values[minIndex]) minIndex = i;\n        }\n        if (minIndex != start) std::swap(values[start], values[minIndex]);\n    }\n}`,
+    Java: `class Solution {\n    public void selectionSort(int[] values) {\n        for (int start = 0; start + 1 < values.length; start++) {\n            int minIndex = start;\n            for (int i = start + 1; i < values.length; i++) {\n                if (values[i] < values[minIndex]) minIndex = i;\n            }\n            if (minIndex != start) {\n                int temp = values[start];\n                values[start] = values[minIndex];\n                values[minIndex] = temp;\n            }\n        }\n    }\n}`,
+    Python: `def selection_sort(values):\n    for start in range(len(values) - 1):\n        min_index = start\n        for i in range(start + 1, len(values)):\n            if values[i] < values[min_index]:\n                min_index = i\n        values[start], values[min_index] = values[min_index], values[start]\n    return values`,
+    Python3: `class Solution:\n    def selectionSort(self, values: list[int]) -> list[int]:\n        for start in range(len(values) - 1):\n            min_index = start\n            for i in range(start + 1, len(values)):\n                if values[i] < values[min_index]:\n                    min_index = i\n            values[start], values[min_index] = values[min_index], values[start]\n        return values`,
+  },
+  insertion: {
+    C: `#include <stddef.h>\n\nvoid insertion_sort(int array[], size_t length) {\n    for (size_t i = 1; i < length; ++i) {\n        int key = array[i];\n        size_t position = i;\n        while (position > 0 && array[position - 1] > key) {\n            array[position] = array[position - 1];\n            --position;\n        }\n        array[position] = key;\n    }\n}`,
+    "C++": `#include <vector>\n\nvoid insertionSort(std::vector<int>& values) {\n    for (std::size_t i = 1; i < values.size(); ++i) {\n        const int key = values[i];\n        std::size_t position = i;\n        while (position > 0 && values[position - 1] > key) {\n            values[position] = values[position - 1];\n            --position;\n        }\n        values[position] = key;\n    }\n}`,
+    Java: `class Solution {\n    public void insertionSort(int[] values) {\n        for (int i = 1; i < values.length; i++) {\n            int key = values[i];\n            int position = i - 1;\n            while (position >= 0 && values[position] > key) {\n                values[position + 1] = values[position];\n                position--;\n            }\n            values[position + 1] = key;\n        }\n    }\n}`,
+    Python: `def insertion_sort(values):\n    for i in range(1, len(values)):\n        key = values[i]\n        position = i - 1\n        while position >= 0 and values[position] > key:\n            values[position + 1] = values[position]\n            position -= 1\n        values[position + 1] = key\n    return values`,
+    Python3: `class Solution:\n    def insertionSort(self, values: list[int]) -> list[int]:\n        for i in range(1, len(values)):\n            key = values[i]\n            position = i - 1\n            while position >= 0 and values[position] > key:\n                values[position + 1] = values[position]\n                position -= 1\n            values[position + 1] = key\n        return values`,
+  },
+};
