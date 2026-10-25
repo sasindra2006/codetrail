@@ -6,6 +6,7 @@ import { executeBubbleSort } from "@/lib/algorithms/bubble-sort";
 import { executeSelectionSort } from "@/lib/algorithms/selection-sort";
 import { executeInsertionSort } from "@/lib/algorithms/insertion-sort";
 import { executeLinearSearch } from "@/lib/algorithms/linear-search";
+import { executeBinarySearch } from "@/lib/algorithms/binary-search";
 import type { AlgorithmExecutionStep } from "@/lib/algorithms/execution";
 import type { PseudocodeLine } from "@/lib/algorithms/execution";
 import { algorithmSourceCode, codeLanguages, type CodeLanguage } from "@/lib/algorithms/source-code";
@@ -15,7 +16,7 @@ const STEP_INTERVAL_MS = 650;
 const MIN_ARRAY_SIZE = 5;
 const MAX_ARRAY_SIZE = 10;
 
-export type SortingAlgorithm = "bubble" | "selection" | "insertion" | "linear";
+export type SortingAlgorithm = "bubble" | "selection" | "insertion" | "linear" | "binary";
 
 function describeStep(
   step: AlgorithmExecutionStep | undefined,
@@ -24,6 +25,7 @@ function describeStep(
 ) {
   if (!step) {
     if (algorithm === "linear") return "Ready to search the array from left to right.";
+    if (algorithm === "binary") return "Ready to search the ascending array by halving the interval.";
     if (algorithm === "bubble") return "Ready to compare adjacent values.";
     if (algorithm === "selection") return "Ready to find the minimum value.";
     return "Ready to insert each value into the sorted prefix.";
@@ -50,6 +52,11 @@ function describeStep(
   if (step.type === "search-compare") return `Checking index ${step.index}: ${step.array[step.index]} ${step.array[step.index] === step.target ? "matches" : "does not match"} target ${step.target}.`;
   if (step.type === "search-found") return `Found ${step.target} at index ${step.index}. This is the first matching index.`;
   if (step.type === "search-not-found") return `Target ${step.target} was not found after checking all ${count} values.`;
+  if (step.type === "binary-compare") return `Comparing middle value ${step.array[step.mid]} at index ${step.mid} with target ${step.target}.`;
+  if (step.type === "binary-left") return `Target is smaller than ${step.array[step.mid]}; continue in the left half (indices ${step.low} to ${step.high}).`;
+  if (step.type === "binary-right") return `Target is larger than ${step.array[step.mid]}; continue in the right half (indices ${step.low} to ${step.high}).`;
+  if (step.type === "binary-found") return `Found ${step.target} at index ${step.mid}.`;
+  if (step.type === "binary-not-found") return `Target ${step.target} was not found; the search interval is empty.`;
 
   return `Sorting complete. All ${count} values are in order. Reset to run it again.`;
 }
@@ -75,6 +82,10 @@ function createRandomArray() {
   return Array.from({ length: size }, () =>
     Math.floor(Math.random() * 201) - 100,
   );
+}
+
+function sortAscending(values: readonly number[]) {
+  return [...values].sort((left, right) => left - right);
 }
 
 function parseArrayInput(value: string): number[] {
@@ -119,7 +130,8 @@ function ArrayBars({
     : step?.type === "minimum-update" ? [step.index]
     : step?.type === "shift" ? [step.from, step.to]
       : step?.type === "key" || step?.type === "insert" ? [step.index]
-        : step?.type === "search-compare" || step?.type === "search-found" ? [step.index] : [];
+        : step?.type === "search-compare" || step?.type === "search-found" ? [step.index]
+          : step?.type === "binary-compare" || step?.type === "binary-left" || step?.type === "binary-right" || step?.type === "binary-found" ? [step.mid] : [];
   const keyValue = step && (step.type === "key" || step.type === "shift" || step.type === "insert") ? step.key : undefined;
 
   const swap = step?.type === "swap";
@@ -134,8 +146,11 @@ function ArrayBars({
     >
       {values.map((value, index) => {
         const searching = step?.type === "search-compare" || step?.type === "search-found" || step?.type === "search-not-found";
+        const binary = step?.type === "binary-compare" || step?.type === "binary-left" || step?.type === "binary-right" || step?.type === "binary-found" || step?.type === "binary-not-found";
+        const inRange = binary && step && "low" in step && index >= step.low && index <= step.high;
         const checked = searching && "checkedIndices" in step && step.checkedIndices.includes(index);
         const found = (step?.type === "search-found") && step.index === index;
+        const binaryFound = step?.type === "binary-found" && step.mid === index;
         const sorted = !searching && (step?.sortedIndices.includes(index) ?? false);
         const active = activeIndices.includes(index);
 
@@ -148,8 +163,10 @@ function ArrayBars({
 
         const isKey = keyValue !== undefined && step?.type === "key" && index === step.index;
         const shifting = step?.type === "shift" && activeIndices.includes(index);
-        const tone = found
+        const tone = found || binaryFound
           ? "border-emerald-400 bg-emerald-400/25 text-foreground"
+          : binary && !inRange
+            ? "border-line bg-surface/50 text-muted opacity-50"
           : searching && checked && !active
             ? "border-line-strong bg-slate-500/20 text-muted"
           : isKey
@@ -169,6 +186,7 @@ function ArrayBars({
             className="flex h-full max-w-16 flex-1 flex-col items-center justify-end"
             key={index}
           >
+            {binary && step && "low" in step ? <span className="mb-1 flex h-4 justify-center gap-1 font-mono text-[9px] font-semibold uppercase text-accent sm:text-[10px]">{step.low === index ? "L" : ""}{step.mid === index ? "M" : ""}{step.high === index ? "H" : ""}</span> : null}
             <span
               className={`mb-2 font-mono text-xs ${
                 active || sorted ? "text-foreground" : "text-muted"
@@ -221,9 +239,11 @@ function ControlButton({
 }
 
 export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algorithm?: SortingAlgorithm; pseudocode: readonly PseudocodeLine[] }) {
-  const [input, setInput] = useState<readonly number[]>(STARTING_ARRAY);
-  const [inputText, setInputText] = useState(STARTING_ARRAY.join(", "));
+  const startingArray = algorithm === "binary" ? sortAscending(STARTING_ARRAY) : STARTING_ARRAY;
+  const [input, setInput] = useState<readonly number[]>(startingArray);
+  const [inputText, setInputText] = useState(startingArray.join(", "));
   const [inputError, setInputError] = useState<string | null>(null);
+  const [arrayNotice, setArrayNotice] = useState<string | null>(null);
   const [target, setTarget] = useState(31);
   const [targetText, setTargetText] = useState("31");
   const [targetError, setTargetError] = useState<string | null>(null);
@@ -269,7 +289,9 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
 
   const steps = useMemo(
     () =>
-      algorithm === "linear"
+      algorithm === "binary"
+        ? executeBinarySearch(input, target)
+        : algorithm === "linear"
         ? executeLinearSearch(input, target)
         : algorithm === "bubble"
         ? executeBubbleSort(input)
@@ -300,17 +322,19 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
     return () => window.clearTimeout(timer);
   }, [playing, stepCount, steps.length]);
 
-  function reset(nextInput: readonly number[] = input) {
+  function reset(nextInput: readonly number[] = input, announceSorted = false) {
+    const normalizedInput = algorithm === "binary" ? sortAscending(nextInput) : [...nextInput];
     setPlaying(false);
-    setInput(nextInput);
-    setInputText(nextInput.join(", "));
+    setInput(normalizedInput);
+    setInputText(normalizedInput.join(", "));
     setInputError(null);
+    setArrayNotice(announceSorted && algorithm === "binary" ? "The custom array was sorted in ascending order before searching." : null);
     setStepCount(0);
   }
 
   function applyInput() {
     try {
-      reset(parseArrayInput(inputText));
+      reset(parseArrayInput(inputText), true);
     } catch (error) {
       setInputError(
         error instanceof Error ? error.message : "Invalid array input.",
@@ -325,7 +349,7 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
         <h2 className="text-sm font-semibold text-foreground" id="algorithm-pseudocode-heading">Pseudocode</h2>
         <p className="mt-1 text-xs text-muted">Language-independent outline. The highlighted line matches the current step.</p>
       </div>
-      <ol aria-label={`${algorithm === "linear" ? "Linear search" : `${algorithm} sort`} pseudocode`} className="max-w-full overflow-x-auto p-3 font-mono text-sm leading-6 sm:p-4">
+      <ol aria-label={`${algorithm === "linear" || algorithm === "binary" ? `${algorithm === "linear" ? "Linear" : "Binary"} search` : `${algorithm} sort`} pseudocode`} className="max-w-full overflow-x-auto p-3 font-mono text-sm leading-6 sm:p-4">
         {pseudocode.map((line, index) => {
           const active = currentStep?.lineId === line.id;
           return (
@@ -342,7 +366,7 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
       </ol>
     </section>
     <section
-      aria-label={`${algorithm === "linear" ? "Linear search" : `${algorithm === "bubble" ? "Bubble" : algorithm === "selection" ? "Selection" : "Insertion"} sort`} visualizer`}
+      aria-label={`${algorithm === "linear" || algorithm === "binary" ? `${algorithm === "linear" ? "Linear" : "Binary"} search` : `${algorithm === "bubble" ? "Bubble" : algorithm === "selection" ? "Selection" : "Insertion"} sort`} visualizer`}
       className="border border-line bg-panel"
     >
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-4 sm:px-6">
@@ -351,7 +375,9 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
             Array visualization
           </h2>
           <p className="mt-1 text-xs text-muted">
-            {algorithm === "linear"
+            {algorithm === "binary"
+              ? "Search the sorted array by narrowing the active range."
+              : algorithm === "linear"
               ? "Inspect one value at a time from left to right."
               : algorithm === "bubble"
               ? "Compare neighbors, then follow each pass."
@@ -364,18 +390,18 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
         <div className="flex flex-wrap items-center gap-2">
           <button
             aria-label="Shuffle current values and restart visualization"
-            title="Rearrange the current values without changing them"
+            title={algorithm === "binary" ? "Rearrange the current values, then sort them" : "Rearrange the current values without changing them"}
             className="min-h-10 border border-line-strong px-3 text-sm text-foreground outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-accent"
             onClick={() => reset(shuffleArray(input))}
             type="button"
           >
-            Shuffle array
+            {algorithm === "binary" ? "Rearrange and sort" : "Shuffle array"}
           </button>
           <button
             aria-label="Generate a new random array and restart visualization"
             title="Generate a new array with random integers"
             className="min-h-10 border border-accent bg-accent px-3 text-sm font-medium text-accent-foreground outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel"
-            onClick={() => reset(createRandomArray())}
+            onClick={() => reset(algorithm === "binary" ? sortAscending(createRandomArray()) : createRandomArray())}
             type="button"
           >
             Randomize
@@ -395,7 +421,7 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
             className="mb-2 block text-sm font-medium text-foreground"
             htmlFor="sorting-array-input"
           >
-            Customize your array
+            {algorithm === "binary" ? "Customize the array (sorted before searching)" : "Customize your array"}
           </label>
 
           <div className="flex flex-col gap-2 sm:flex-row">
@@ -434,11 +460,13 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
           )}
         </form>
 
-        {algorithm === "linear" ? (
+        {arrayNotice ? <p aria-live="polite" className="-mt-4 mb-5 text-sm text-accent" role="status">{arrayNotice}</p> : null}
+
+        {algorithm === "linear" || algorithm === "binary" ? (
           <form className="mb-6" onSubmit={(event) => { event.preventDefault(); const trimmed = targetText.trim(); if (!/^-?\d+$/.test(trimmed) || Number(trimmed) < -100 || Number(trimmed) > 100) { setTargetError("Enter a whole-number target from -100 to 100."); return; } setTargetError(null); setTarget(Number(trimmed)); setStepCount(0); setPlaying(false); }}>
-            <label className="mb-2 block text-sm font-medium text-foreground" htmlFor="linear-target-input">Search target</label>
-            <div className="flex flex-col gap-2 sm:flex-row"><input className="min-h-10 border border-line-strong bg-surface px-3 py-2 font-mono text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-accent sm:w-40" id="linear-target-input" inputMode="numeric" max="100" min="-100" onChange={(event) => { setTargetText(event.target.value); setTargetError(null); }} value={targetText} aria-invalid={targetError !== null} aria-describedby="linear-target-help" /><button className="min-h-10 border border-accent bg-accent px-4 text-sm font-medium text-accent-foreground" type="submit">Apply target</button></div>
-            <p className="mt-2 text-xs text-muted" id="linear-target-help">Enter an integer from -100 to 100. The search returns the first match.</p>
+            <label className="mb-2 block text-sm font-medium text-foreground" htmlFor={`${algorithm}-target-input`}>Search target</label>
+            <div className="flex flex-col gap-2 sm:flex-row"><input className="min-h-10 border border-line-strong bg-surface px-3 py-2 font-mono text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-accent sm:w-40" id={`${algorithm}-target-input`} inputMode="numeric" max="100" min="-100" onChange={(event) => { setTargetText(event.target.value); setTargetError(null); }} value={targetText} aria-invalid={targetError !== null} aria-describedby={`${algorithm}-target-help`} /><button className="min-h-10 border border-accent bg-accent px-4 text-sm font-medium text-accent-foreground" type="submit">Apply target</button></div>
+            <p className="mt-2 text-xs text-muted" id={`${algorithm}-target-help`}>Enter an integer from -100 to 100.{algorithm === "linear" ? " The search returns the first match." : ""}</p>
             {targetError ? <p className="mt-2 text-sm text-rose-500" role="alert">{targetError}</p> : null}
           </form>
         ) : null}
@@ -452,6 +480,8 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
           </span>
           {algorithm === "linear" ? (
             <><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-slate-500" /> Checked</span><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-emerald-400" /> Match</span></>
+          ) : algorithm === "binary" ? (
+            <><span className="flex items-center gap-2"><i className="font-mono text-[10px] font-semibold text-accent">L</i> Low</span><span className="flex items-center gap-2"><i className="font-mono text-[10px] font-semibold text-accent">M</i> Mid</span><span className="flex items-center gap-2"><i className="font-mono text-[10px] font-semibold text-accent">H</i> High</span></>
           ) : (
             <>
               {algorithm === "insertion" ? <span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-sky-400" /> Active key</span> : null}

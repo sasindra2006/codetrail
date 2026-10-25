@@ -35,4 +35,11 @@ export const algorithmSourceCode: CodeByAlgorithm = {
     Python: `def linear_search(values, target):\n    for index, value in enumerate(values):\n        if value == target:\n            return index\n    return -1`,
     Python3: `class Solution:\n    def search(self, values: list[int], target: int) -> int:\n        for index, value in enumerate(values):\n            if value == target:\n                return index\n        return -1`,
   },
+  binary: {
+    C: `int binary_search(const int array[], int length, int target) {\n    int low = 0;\n    int high = length - 1;\n    while (low <= high) {\n        int mid = low + (high - low) / 2;\n        if (array[mid] == target) return mid;\n        if (array[mid] > target) high = mid - 1;\n        else low = mid + 1;\n    }\n    return -1;\n}`,
+    "C++": `#include <vector>\n\nint binarySearch(const std::vector<int>& values, int target) {\n    int low = 0;\n    int high = static_cast<int>(values.size()) - 1;\n    while (low <= high) {\n        const int mid = low + (high - low) / 2;\n        if (values[mid] == target) return mid;\n        if (values[mid] > target) high = mid - 1;\n        else low = mid + 1;\n    }\n    return -1;\n}`,
+    Java: `class Solution {\n    public int binarySearch(int[] values, int target) {\n        int low = 0;\n        int high = values.length - 1;\n        while (low <= high) {\n            int mid = low + (high - low) / 2;\n            if (values[mid] == target) return mid;\n            if (values[mid] > target) high = mid - 1;\n            else low = mid + 1;\n        }\n        return -1;\n    }\n}`,
+    Python: `def binary_search(values, target):\n    low, high = 0, len(values) - 1\n    while low <= high:\n        mid = low + (high - low) // 2\n        if values[mid] == target:\n            return mid\n        if values[mid] > target:\n            high = mid - 1\n        else:\n            low = mid + 1\n    return -1`,
+    Python3: `class Solution:\n    def search(self, values: list[int], target: int) -> int:\n        low, high = 0, len(values) - 1\n        while low <= high:\n            mid = low + (high - low) // 2\n            if values[mid] == target:\n                return mid\n            if values[mid] > target:\n                high = mid - 1\n            else:\n                low = mid + 1\n        return -1`,
+  },
 };

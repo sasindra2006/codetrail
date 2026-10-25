@@ -16,7 +16,7 @@ export type AlgorithmInfo = {
   explanation: string;
   pseudocode: readonly PseudocodeLine[];
   properties: string;
-  visualizer: "bubble" | "selection" | "insertion" | "linear";
+  visualizer: "bubble" | "selection" | "insertion" | "linear" | "binary";
 };
 
 export const algorithms: AlgorithmInfo[] = [
@@ -95,6 +95,25 @@ export const algorithms: AlgorithmInfo[] = [
     { id: "linear.return-not-found", text: "    return -1" },
   ],
   properties: "Sequential · First match", visualizer: "linear",
+  },
+  {
+    slug: "binary-search", name: "Binary Search", category: "Searching",
+    description: "Search a sorted array by repeatedly narrowing the interval around its middle value.",
+    keywords: ["sorted", "divide and conquer", "target", "array", "search"],
+    timeComplexity: "O(log n)", bestCase: "O(1)", averageCase: "O(log n)", worstCase: "O(log n)", spaceComplexity: "O(1)",
+    explanation: "Binary Search operates on an ascending sorted array. It compares the target with the middle value, then discards the half that cannot contain the target. Repeating this process takes logarithmic time and constant auxiliary space. When duplicates are present, this implementation returns any matching occurrence.",
+    pseudocode: [
+      { id: "binary.header", text: "BINARY-SEARCH(A, target):" },
+      { id: "binary.initialize", text: "    low = 0; high = length(A) - 1" },
+      { id: "binary.loop", text: "    while low <= high:" },
+      { id: "binary.middle", text: "        mid = low + floor((high - low) / 2)" },
+      { id: "binary.compare", text: "        if A[mid] == target:" },
+      { id: "binary.found", text: "            return mid" },
+      { id: "binary.left", text: "        if A[mid] > target: high = mid - 1" },
+      { id: "binary.right", text: "        else: low = mid + 1" },
+      { id: "binary.return-not-found", text: "    return -1" },
+    ],
+    properties: "Sorted input · Iterative", visualizer: "binary",
   },
 ];
 
