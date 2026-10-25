@@ -8,19 +8,30 @@ import { executeInsertionSort } from "@/lib/algorithms/insertion-sort";
 import { executeLinearSearch } from "@/lib/algorithms/linear-search";
 import { executeBinarySearch } from "@/lib/algorithms/binary-search";
 import { executeMergeSort } from "@/lib/algorithms/merge-sort";
-import { executeQuickSort } from "@/lib/algorithms/quick-sort";
+import { executeQuickSort, quickSortPartitionKey } from "@/lib/algorithms/quick-sort";
+import type { QuickSortCustomPivots, QuickSortPivotStrategy } from "@/lib/algorithms/quick-sort";
 import { executeHeapSort } from "@/lib/algorithms/heap-sort";
+import { executeCountingSort } from "@/lib/algorithms/counting-sort";
 import type { AlgorithmExecutionStep } from "@/lib/algorithms/execution";
+import type { QuickSortStep } from "@/lib/algorithms/execution";
 import type { HeapSortStep } from "@/lib/algorithms/execution";
+import type { CountingSortStep } from "@/lib/algorithms/execution";
 import type { PseudocodeLine } from "@/lib/algorithms/execution";
-import { algorithmSourceCode, codeLanguages, type CodeLanguage } from "@/lib/algorithms/source-code";
+import { algorithmSourceCode, quickSortSourceCode, codeLanguages, type CodeLanguage } from "@/lib/algorithms/source-code";
 
 const STARTING_ARRAY = [42, 17, 68, 9, 31, 54, 23];
 const STEP_INTERVAL_MS = 650;
 const MIN_ARRAY_SIZE = 5;
 const MAX_ARRAY_SIZE = 10;
+const PIVOT_STRATEGY_LABELS: Record<QuickSortPivotStrategy, string> = {
+  last: "Last element",
+  middle: "Middle element",
+  first: "First element",
+  random: "Random element",
+  custom: "Custom element",
+};
 
-export type SortingAlgorithm = "bubble" | "selection" | "insertion" | "merge" | "quick" | "heap" | "linear" | "binary";
+export type SortingAlgorithm = "bubble" | "selection" | "insertion" | "merge" | "quick" | "heap" | "counting" | "linear" | "binary";
 
 function describeStep(
   step: AlgorithmExecutionStep | undefined,
@@ -33,6 +44,7 @@ function describeStep(
     if (algorithm === "bubble") return "Ready to compare adjacent values.";
     if (algorithm === "selection") return "Ready to find the minimum value.";
     if (algorithm === "heap") return "Ready to build a max heap from the array.";
+    if (algorithm === "counting") return "Ready to count each value, then build the sorted output.";
     return "Ready to insert each value into the sorted prefix.";
   }
 
@@ -71,7 +83,9 @@ function describeStep(
   if (step.type === "quick-base") return `Range ${step.low}–${step.high} has one value and is already sorted.`;
   if (step.type === "quick-recurse") return `Recursively sort the nonempty ${step.side} range ${step.low}–${step.high}.`;
   if (step.type === "quick-partition") return `Partition active range ${step.low}–${step.high} using its final value as the pivot.`;
-  if (step.type === "quick-pivot") return `Selected ${step.pivotValue} at index ${step.pivotIndex} as the pivot; boundary starts at ${step.boundary}.`;
+  if (step.type === "quick-pivot-select") return `Selected ${step.pivotValue} at index ${step.selectedPivotIndex} from the active range using the ${PIVOT_STRATEGY_LABELS[step.pivotStrategy].toLowerCase()} strategy.`;
+  if (step.type === "quick-pivot-move") return `Move the selected pivot from index ${step.selectedPivotIndex} to the end of this active range at index ${step.high} for Lomuto partitioning.`;
+  if (step.type === "quick-pivot") return `The selected pivot ${step.pivotValue} is ready at index ${step.pivotIndex}; boundary starts at ${step.boundary}.`;
   if (step.type === "quick-compare") return step.array[step.scanIndex] <= step.pivotValue
     ? `${step.array[step.scanIndex]} at index ${step.scanIndex} is less than or equal to pivot ${step.pivotValue}; it belongs in the left partition.`
     : `${step.array[step.scanIndex]} at index ${step.scanIndex} is greater than pivot ${step.pivotValue}; it stays in the right partition.`;
@@ -87,6 +101,12 @@ function describeStep(
   if (step.type === "heap-extract") return `Move the maximum at the root to index ${step.extractedIndex}, the end of the active heap.`;
   if (step.type === "heap-extract-swap") return `Placed ${step.array[step.extractedIndex!]} in the sorted suffix. The active heap now has ${step.activeHeapSize} values.`;
   if (step.type === "heap-sorted") return "Heap Sort is complete; the entire array is in ascending order.";
+  if (step.type === "counting-range") return `The value range is ${step.minimum} to ${step.maximum}; offset each value by ${step.minimum}.`;
+  if (step.type === "counting-initialize") return `Initialize ${step.counts.length} frequency buckets to zero.`;
+  if (step.type === "counting-count") return `Count input value ${step.array[step.inputIndex!]} at index ${step.inputIndex}; its bucket is ${step.bucketIndex} (value ${step.minimum + step.bucketIndex!}).`;
+  if (step.type === "counting-counted") return "Frequency counting is complete; each bucket records how often its value appears.";
+  if (step.type === "counting-output-start") return "Write values in ascending bucket order, repeating each by its frequency.";
+  if (step.type === "counting-output-place") return `Write ${step.outputValue} into output index ${step.outputIndex} using bucket ${step.bucketIndex}.`;
 
   return `Sorting complete. All ${count} values are in order. Reset to run it again.`;
 }
@@ -170,7 +190,8 @@ function ArrayBars({
               : step?.type === "quick-compare" ? [step.scanIndex]
                 : step?.type === "quick-swap" ? step.swapIndices ?? []
                   : step?.type === "heapify-compare" || step?.type === "heap-extract" ? step.indices ?? []
-                    : step?.type === "heapify-swap" || step?.type === "heap-extract-swap" ? step.swapIndices ?? [] : [];
+                    : step?.type === "heapify-swap" || step?.type === "heap-extract-swap" ? step.swapIndices ?? []
+                      : step?.type === "counting-count" ? [step.inputIndex!] : [];
   const keyValue = step && (step.type === "key" || step.type === "shift" || step.type === "insert") ? step.key : undefined;
 
   const swap = step?.type === "swap";
@@ -192,10 +213,10 @@ function ArrayBars({
         const mergeCompareIndex = step?.type === "merge-compare" && (index === step.leftCursor || index === step.rightCursor);
         const mergeOutputIndex = step?.type === "merge-place" && index === step.outputIndex;
         const mergeCompleteIndex = step?.type === "merge-complete" && index >= step.left && index <= step.right;
-        const quick = step?.type === "quick-base" || step?.type === "quick-partition" || step?.type === "quick-pivot" || step?.type === "quick-compare" || step?.type === "quick-swap" || step?.type === "quick-boundary" || step?.type === "quick-pivot-place" || step?.type === "quick-recurse";
+        const quick = step?.type === "quick-base" || step?.type === "quick-partition" || step?.type === "quick-pivot-select" || step?.type === "quick-pivot-move" || step?.type === "quick-pivot" || step?.type === "quick-compare" || step?.type === "quick-swap" || step?.type === "quick-boundary" || step?.type === "quick-pivot-place" || step?.type === "quick-recurse";
         const inQuickRange = quick && step && "low" in step && index >= step.low && index <= step.high;
         const quickPivot = quick && step && "pivotIndex" in step && index === step.pivotIndex;
-        const quickSwap = (step?.type === "quick-swap" || step?.type === "quick-pivot-place") && step.swapIndices?.includes(index) === true;
+        const quickSwap = (step?.type === "quick-swap" || step?.type === "quick-pivot-move" || step?.type === "quick-pivot-place") && step.swapIndices?.includes(index) === true;
         const quickFinalPivot = step?.type === "quick-pivot-place" && index === step.pivotIndex;
         const quickBase = step?.type === "quick-base" && index === step.low;
         const heapStep = step && "activeHeapSize" in step ? step : undefined;
@@ -276,7 +297,7 @@ function ArrayBars({
           >
             {binary && step && "low" in step ? <span className="mb-1 flex h-4 justify-center gap-1 font-mono text-[9px] font-semibold uppercase text-accent sm:text-[10px]">{step.low === index ? "L" : ""}{step.mid === index ? "M" : ""}{step.high === index ? "H" : ""}</span> : null}
             {merging && step && "left" in step ? <span className="mb-1 flex h-4 justify-center gap-1 font-mono text-[9px] font-semibold uppercase text-accent sm:text-[10px]">{step.left === index ? "L" : ""}{step.mid === index ? "M" : ""}{step.right === index ? "R" : ""}{step.type === "merge-compare" && step.leftCursor === index ? "i" : ""}{step.type === "merge-compare" && step.rightCursor === index ? "j" : ""}{step.type === "merge-place" && step.outputIndex === index ? "k" : ""}</span> : null}
-            {quick && step && "low" in step ? <span className="mb-1 flex h-4 justify-center gap-1 font-mono text-[9px] font-semibold uppercase text-accent sm:text-[10px]">{step.low === index ? "L" : ""}{step.high === index ? "H" : ""}{step.pivotIndex === index ? "P" : ""}{step.type === "quick-compare" && step.scanIndex === index ? "j" : ""}{step.type === "quick-boundary" && step.boundary === index ? "B" : ""}{step.type === "quick-swap" && step.boundary === index ? "B" : ""}</span> : null}
+            {quick && step && "low" in step ? <span className="mb-1 flex h-4 justify-center gap-1 font-mono text-[9px] font-semibold uppercase text-accent sm:text-[10px]">{step.low === index ? "L" : ""}{step.high === index ? "H" : ""}{step.pivotIndex === index ? "P" : ""}{step.type === "quick-pivot-move" && step.selectedPivotIndex === index ? "from" : ""}{step.type === "quick-compare" && step.scanIndex === index ? "j" : ""}{step.type === "quick-boundary" && step.boundary === index ? "B" : ""}{step.type === "quick-swap" && step.boundary === index ? "B" : ""}</span> : null}
             <span
               className={`mb-2 font-mono text-xs ${
                 active || sorted ? "text-foreground" : "text-muted"
@@ -348,6 +369,54 @@ function HeapTree({ values, step }: { values: readonly number[]; step: Algorithm
   );
 }
 
+function CountingSortPanel({ values, step }: { values: readonly number[]; step: CountingSortStep | undefined }) {
+  const minimum = step?.minimum ?? Math.min(...values);
+  const distinctValues = [...new Set(values)].sort((left, right) => left - right);
+  const frequencies = distinctValues.map((value) => step?.frequencies[value - minimum] ?? 0);
+  const maxVisibleFrequency = Math.max(1, ...frequencies);
+  const output = step?.output ?? Array(values.length).fill(null) as (number | null)[];
+  const currentBucket = step?.bucketIndex;
+  return (
+    <div className="mt-6 grid gap-5 border border-line bg-surface/40 p-3 sm:p-4">
+      <section aria-labelledby="counting-frequency-heading">
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+          <h3 className="text-xs font-semibold text-foreground" id="counting-frequency-heading">Distinct input values</h3>
+          <p className="text-xs text-muted">{step?.phase === "output" ? "Input frequencies are complete; output values are built below." : "Frequency counts update as each input value is scanned."}</p>
+        </div>
+        <ul aria-label="Value frequencies" className="grid grid-cols-1 gap-2 sm:grid-cols-2" role="list">
+            {distinctValues.map((value, index) => {
+              const bucketIndex = value - minimum;
+              const frequency = frequencies[index];
+              const current = currentBucket === bucketIndex;
+              const barWidth = (frequency / maxVisibleFrequency) * 100;
+              return <li aria-label={`Value ${value}, frequency ${frequency}${current ? ", active value" : ""}`} className={`min-w-0 border p-3 ${current ? "border-accent/80 bg-accent/10" : "border-line bg-panel/70"}`} key={value}>
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <span className="font-mono text-sm font-semibold tabular-nums text-foreground">{value}</span>
+                  <span className={`font-mono text-xs tabular-nums ${current ? "text-accent" : "text-muted"}`}>Count: {frequency}</span>
+                </div>
+                <div aria-label={`${frequency} occurrences of ${value}`} aria-valuemax={maxVisibleFrequency} aria-valuemin={0} aria-valuenow={frequency} className="h-1.5 overflow-hidden bg-hover" role="meter">
+                  <div className={`h-full transition-[width] duration-300 ${current ? "bg-accent" : "bg-sky-500/80"}`} style={{ width: `${barWidth}%` }} />
+                </div>
+              </li>;
+            })}
+        </ul>
+      </section>
+      <section aria-labelledby="counting-output-heading">
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+          <h3 className="text-xs font-semibold text-foreground" id="counting-output-heading">Sorted output</h3>
+          <p className="text-xs text-muted">Each emitted value fills the next output position.</p>
+        </div>
+        <ol aria-label="Sorted output positions" className="flex flex-wrap gap-2">
+          {output.map((value, index) => {
+            const current = step?.type === "counting-output-place" && step.outputIndex === index;
+            return <li aria-label={`Output index ${index}: ${value ?? "empty"}${current ? ", just written" : ""}`} className={`flex h-12 min-w-12 flex-col items-center justify-center border px-2 font-mono text-xs ${current ? "border-rose-400 bg-rose-400/15 text-foreground" : value === null ? "border-dashed border-line-strong text-muted" : "border-emerald-500/60 bg-emerald-500/10 text-foreground"}`} key={index}><span>{value ?? "—"}</span><span className="mt-0.5 text-[9px] text-muted">{index}</span></li>;
+          })}
+        </ol>
+      </section>
+    </div>
+  );
+}
+
 function ControlButton({
   children,
   label,
@@ -389,6 +458,9 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
   const [targetError, setTargetError] = useState<string | null>(null);
   const [stepCount, setStepCount] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [pivotStrategy, setPivotStrategy] = useState<QuickSortPivotStrategy>("last");
+  const [customPivots, setCustomPivots] = useState<QuickSortCustomPivots>({});
+  const [quickSteps, setQuickSteps] = useState<AlgorithmExecutionStep[]>(() => algorithm === "quick" ? executeQuickSort(startingArray, "last") : []);
   const [language, setLanguage] = useState<CodeLanguage>("C++");
   const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">("idle");
@@ -397,7 +469,9 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
   const languageOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const pendingLanguageFocusIndex = useRef<number | null>(null);
   const selectedLanguageIndex = codeLanguages.indexOf(language);
-  const sourceCode = algorithmSourceCode[algorithm][language];
+  const sourceCode = algorithm === "quick"
+    ? quickSortSourceCode[pivotStrategy][language]
+    : algorithmSourceCode[algorithm][language];
 
   useEffect(() => {
     if (!languageMenuOpen) return;
@@ -434,9 +508,11 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
         : algorithm === "linear"
         ? executeLinearSearch(input, target)
         : algorithm === "quick"
-          ? executeQuickSort(input)
+          ? quickSteps
         : algorithm === "heap"
           ? executeHeapSort(input)
+        : algorithm === "counting"
+          ? executeCountingSort(input)
         : algorithm === "merge"
           ? executeMergeSort(input)
         : algorithm === "bubble"
@@ -444,11 +520,41 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
         : algorithm === "selection"
           ? executeSelectionSort(input)
           : executeInsertionSort(input),
-    [algorithm, input, target],
+    [algorithm, input, target, quickSteps],
   );
 
+  const displayedPseudocode = algorithm === "quick"
+    ? pseudocode.map((line) => line.id === "quick.pivot-select"
+      ? { ...line, text: pivotStrategy === "custom"
+        ? "    pivotIndex = use this range's manual choice, or low if none is set"
+        : `    pivotIndex = choose the ${PIVOT_STRATEGY_LABELS[pivotStrategy].toLowerCase()} from A[low .. high]` }
+      : line)
+    : pseudocode;
+
   const currentStep = stepCount > 0 ? steps[stepCount - 1] : undefined;
+  const currentQuickStep = currentStep && "pivotStrategy" in currentStep ? currentStep : undefined;
+  const upcomingQuickPivot = steps.slice(stepCount).find((step) => step.type === "quick-pivot-select") as QuickSortStep | undefined;
+  const customPartition = algorithm === "quick" && pivotStrategy === "custom"
+    ? currentQuickStep?.type === "quick-recurse" && currentQuickStep.low < currentQuickStep.high
+      ? { low: currentQuickStep.low, high: currentQuickStep.high, array: currentQuickStep.array }
+      : currentQuickStep && currentQuickStep.type !== "quick-pivot-place" && currentQuickStep.low < currentQuickStep.high
+        ? { low: currentQuickStep.low, high: currentQuickStep.high, array: currentQuickStep.array }
+        : upcomingQuickPivot
+          ? { low: upcomingQuickPivot.low, high: upcomingQuickPivot.high, array: upcomingQuickPivot.array }
+          : undefined
+    : undefined;
+  const customPartitionKey = customPartition ? quickSortPartitionKey(customPartition.low, customPartition.high) : undefined;
+  const customSelectedIndex = customPartition && customPartitionKey
+    ? customPivots[customPartitionKey]
+      ?? (currentQuickStep?.low === customPartition.low && currentQuickStep.high === customPartition.high ? currentQuickStep.selectedPivotIndex : undefined)
+      ?? customPartition.low
+    : undefined;
   const complete = stepCount >= steps.length;
+  const countingSnapshot = currentStep && "counts" in currentStep
+    ? currentStep
+    : complete && steps.length > 1 && "counts" in steps[steps.length - 2]
+      ? steps[steps.length - 2] as CountingSortStep
+      : undefined;
   const values = currentStep?.array ?? input;
   const progress = steps.length === 0 ? 0 : (stepCount / steps.length) * 100;
 
@@ -470,6 +576,10 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
 
   function reset(nextInput: readonly number[] = input, announceSorted = false) {
     const normalizedInput = algorithm === "binary" ? sortAscending(nextInput) : [...nextInput];
+    if (algorithm === "quick") {
+      setCustomPivots({});
+      setQuickSteps(executeQuickSort(normalizedInput, pivotStrategy));
+    }
     setPlaying(false);
     setInput(normalizedInput);
     setInputText(normalizedInput.join(", "));
@@ -480,12 +590,33 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
 
   function applyInput() {
     try {
-      reset(parseArrayInput(inputText, algorithm === "merge" || algorithm === "quick" || algorithm === "heap"), true);
+      reset(parseArrayInput(inputText, algorithm === "merge" || algorithm === "quick" || algorithm === "heap" || algorithm === "counting"), true);
     } catch (error) {
       setInputError(
         error instanceof Error ? error.message : "Invalid array input.",
       );
     }
+  }
+
+  function changePivotStrategy(nextStrategy: QuickSortPivotStrategy) {
+    setPlaying(false);
+    setPivotStrategy(nextStrategy);
+    setCustomPivots({});
+    setQuickSteps(executeQuickSort(input, nextStrategy));
+    setStepCount(0);
+  }
+
+  function changeCustomPivot(partitionKey: string, pivotIndex: number) {
+    const targetStepIndex = quickSteps.findIndex((step) => step.type === "quick-pivot-select" && quickSortPartitionKey(step.low, step.high) === partitionKey);
+    const visitedPartitions = new Set(quickSteps.slice(0, Math.max(0, targetStepIndex)).flatMap((step) =>
+      step.type === "quick-pivot-select" ? [quickSortPartitionKey(step.low, step.high)] : [],
+    ));
+    const nextPivots = Object.fromEntries(Object.entries(customPivots).filter(([key]) => visitedPartitions.has(key)));
+    nextPivots[partitionKey] = pivotIndex;
+    setCustomPivots(nextPivots);
+    setPlaying(false);
+    setQuickSteps(executeQuickSort(input, "custom", nextPivots));
+    setStepCount(0);
   }
 
   return (
@@ -496,7 +627,7 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
         <p className="mt-1 text-xs text-muted">Language-independent outline. The highlighted line matches the current step.</p>
       </div>
       <ol aria-label={`${algorithm === "linear" || algorithm === "binary" ? `${algorithm === "linear" ? "Linear" : "Binary"} search` : `${algorithm} sort`} pseudocode`} className="max-w-full overflow-x-auto p-3 font-mono text-sm leading-6 sm:p-4">
-        {pseudocode.map((line, index) => {
+        {displayedPseudocode.map((line, index) => {
           const active = currentStep?.lineId === line.id;
           return (
             <li
@@ -512,7 +643,7 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
       </ol>
     </section>
     <section
-      aria-label={`${algorithm === "linear" || algorithm === "binary" ? `${algorithm === "linear" ? "Linear" : "Binary"} search` : `${algorithm === "bubble" ? "Bubble" : algorithm === "selection" ? "Selection" : algorithm === "insertion" ? "Insertion" : algorithm === "merge" ? "Merge" : algorithm === "heap" ? "Heap" : "Quick"} sort`} visualizer`}
+      aria-label={`${algorithm === "linear" || algorithm === "binary" ? `${algorithm === "linear" ? "Linear" : "Binary"} search` : `${algorithm === "bubble" ? "Bubble" : algorithm === "selection" ? "Selection" : algorithm === "insertion" ? "Insertion" : algorithm === "merge" ? "Merge" : algorithm === "heap" ? "Heap" : algorithm === "counting" ? "Counting" : "Quick"} sort`} visualizer`}
       className="border border-line bg-panel"
     >
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-4 sm:px-6">
@@ -533,6 +664,8 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
                   ? "Follow the pivot, partition boundary, comparisons, and recursive ranges."
                 : algorithm === "heap"
                   ? "Build a max heap, extract its root, and restore the active heap."
+                : algorithm === "counting"
+                  ? "Count each value in the input, then emit values from the frequency table in order."
               : algorithm === "selection"
                 ? "Find the minimum remaining value on each pass."
                 : "Hold each key, shift larger values, then insert it into the sorted prefix."}
@@ -562,6 +695,45 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
       </div>
 
       <div className="p-4 sm:p-6">
+        {algorithm === "quick" ? (
+          <div className="mb-6 flex flex-wrap items-center gap-x-3 gap-y-2">
+            <label className="text-sm font-medium text-foreground" htmlFor="quick-pivot-strategy">Pivot Strategy</label>
+            <select
+              className="min-h-10 border border-line-strong bg-surface px-3 py-2 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              id="quick-pivot-strategy"
+              onChange={(event) => changePivotStrategy(event.target.value as QuickSortPivotStrategy)}
+              value={pivotStrategy}
+            >
+              <option value="last">Last element</option>
+              <option value="middle">Middle element</option>
+              <option value="first">First element</option>
+              <option value="random">Random element</option>
+              <option value="custom">Custom element</option>
+            </select>
+            <span className="text-xs text-muted">Applied separately to each active partition.</span>
+            {pivotStrategy === "custom" && customPartition && customPartitionKey ? (
+              <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 basis-full pt-1">
+                <label className="text-sm font-medium text-foreground" htmlFor="quick-custom-pivot">
+                  Pivot for indices {customPartition.low}–{customPartition.high}
+                </label>
+                <select
+                  className="min-h-10 max-w-full border border-line-strong bg-surface px-3 py-2 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  id="quick-custom-pivot"
+                  onChange={(event) => changeCustomPivot(customPartitionKey, Number(event.target.value))}
+                  value={customSelectedIndex}
+                >
+                  {Array.from({ length: customPartition.high - customPartition.low + 1 }, (_, offset) => customPartition.low + offset).map((index) => (
+                    <option key={index} value={index}>{customPartition.array[index]} (index {index})</option>
+                  ))}
+                </select>
+                <span className="text-xs text-muted">Each range has its own choice; ranges without a choice use the first element. Changing a choice rebuilds playback from the start.</span>
+              </div>
+            ) : pivotStrategy === "custom" ? (
+              <span className="basis-full text-xs text-muted">No unprocessed partition remains.</span>
+            ) : null}
+          </div>
+        ) : null}
+
         <form
           className="mb-6"
           onSubmit={(event) => {
@@ -628,7 +800,7 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
           aria-label="Visualization legend"
         >
           <span className="flex items-center gap-2">
-            <i className="h-2.5 w-2.5 bg-amber-500" /> Comparing
+            <i className="h-2.5 w-2.5 bg-amber-500" /> {algorithm === "counting" ? "Scanning input" : "Comparing"}
           </span>
           {algorithm === "linear" ? (
             <><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-slate-500" /> Checked</span><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-emerald-400" /> Match</span></>
@@ -636,6 +808,8 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
             <><span className="flex items-center gap-2"><i className="font-mono text-[10px] font-semibold text-accent">L</i> Low</span><span className="flex items-center gap-2"><i className="font-mono text-[10px] font-semibold text-accent">M</i> Mid</span><span className="flex items-center gap-2"><i className="font-mono text-[10px] font-semibold text-accent">H</i> High</span></>
           ) : algorithm === "merge" ? (
             <><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-sky-500" /> Active range</span><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-amber-400" /> Compare halves</span><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-rose-400" /> Place value</span><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-emerald-500" /> Merged</span></>
+          ) : algorithm === "counting" ? (
+            <><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-amber-400" /> Current input value</span><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 border border-accent bg-accent/15" /> Active frequency bucket</span><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-emerald-500/30" /> Written output</span></>
           ) : algorithm === "heap" ? (
             <><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-violet-400" /> Parent</span><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-sky-500" /> Children</span><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-amber-400" /> Comparing</span><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-rose-500" /> Swapping</span><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-emerald-500" /> Sorted suffix</span></>
           ) : algorithm === "quick" ? (
@@ -656,8 +830,12 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
             </p>
           ) : null}
         </div>
-        <ArrayBars values={values} step={currentStep} />
+        <ArrayBars
+          values={algorithm === "counting" ? input : values}
+          step={algorithm === "counting" && currentStep && !("counts" in currentStep) ? undefined : currentStep}
+        />
         {algorithm === "heap" ? <HeapTree values={values} step={currentStep} /> : null}
+        {algorithm === "counting" ? <CountingSortPanel values={input} step={countingSnapshot} /> : null}
 
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
           <p aria-live="polite" className="min-h-5 text-sm text-muted">

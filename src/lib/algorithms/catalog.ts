@@ -16,7 +16,7 @@ export type AlgorithmInfo = {
   explanation: string;
   pseudocode: readonly PseudocodeLine[];
   properties: string;
-  visualizer: "bubble" | "selection" | "insertion" | "merge" | "quick" | "heap" | "linear" | "binary";
+  visualizer: "bubble" | "selection" | "insertion" | "merge" | "quick" | "heap" | "counting" | "linear" | "binary";
 };
 
 export const algorithms: AlgorithmInfo[] = [
@@ -81,6 +81,24 @@ export const algorithms: AlgorithmInfo[] = [
     properties: "Stable · In-place", visualizer: "insertion",
   },
   {
+    slug: "counting-sort", name: "Counting Sort", category: "Sorting",
+    description: "Count each integer value, then use those frequencies to write the values in ascending order.",
+    keywords: ["frequency", "integer", "negative values", "range", "non-comparison", "sorting"],
+    timeComplexity: "O(n + k)", bestCase: "O(n + k)", averageCase: "O(n + k)", worstCase: "O(n + k)", spaceComplexity: "O(n + k)",
+    explanation: "Counting Sort counts how often each integer occurs, using an offset from the minimum value so negative values map to valid count indexes. It then scans the count range in ascending order and writes each value the recorded number of times. With n input elements and k = max(A) - min(A) + 1 possible integer values in the observed range, the running time is O(n + k). The output array and frequency table require O(n + k) auxiliary space.",
+    pseudocode: [
+      { id: "counting.header", text: "COUNTING-SORT(A):" },
+      { id: "counting.range", text: "    minimum = min(A); maximum = max(A); offset = minimum" },
+      { id: "counting.initialize", text: "    count[0 .. maximum - minimum] = 0" },
+      { id: "counting.scan", text: "    for each value in A:" },
+      { id: "counting.increment", text: "        count[value - offset] += 1" },
+      { id: "counting.output-start", text: "    outputIndex = 0" },
+      { id: "counting.emit", text: "    for bucket = 0 to maximum - minimum: write offset + bucket count[bucket] times" },
+      { id: "counting.return", text: "    return output" },
+    ],
+    properties: "Non-comparison | Range-based", visualizer: "counting",
+  },
+  {
     slug: "heap-sort", name: "Heap Sort", category: "Sorting",
     description: "Build a max heap, then repeatedly extract its maximum into the sorted suffix.",
     keywords: ["max heap", "heapify", "sift down", "in-place", "array", "sorting"],
@@ -104,13 +122,15 @@ export const algorithms: AlgorithmInfo[] = [
   },
   {
     slug: "quick-sort", name: "Quick Sort", category: "Sorting",
-    description: "Partition around each range's last value, then recursively sort both sides.",
+    description: "Choose a pivot within each active range, partition its values, then recursively sort both sides.",
     keywords: ["pivot", "Lomuto", "partition", "recursive", "in-place", "sorting"],
     timeComplexity: "O(n log n) avg", bestCase: "O(n log n)", averageCase: "O(n log n)", worstCase: "O(n²)", spaceComplexity: "O(log n) avg; O(n) worst",
-    explanation: "Quick Sort selects the last value in the active range as its pivot. Lomuto partitioning scans the rest of the range, moving values less than or equal to the pivot to the left side while tracking a boundary. It then swaps the pivot into that boundary, where it reaches its final sorted position, and recursively sorts the nonempty ranges on either side. The partition is in-place; recursion uses O(log n) stack space on balanced inputs and O(n) in the worst case.",
+    explanation: "Quick Sort can select the first, middle, last, random, or a manually chosen value from each active range as its pivot. Manual choices are associated with each range, since recursive partitions have different elements and indices. Lomuto partitioning requires the pivot at the range's last index, so a selected pivot is moved there before scanning the other values and moving those less than or equal to it to the left side. The pivot then reaches its final position and Quick Sort recursively processes the ranges on either side. Pivot choice affects partition balance and practical performance, but does not remove the O(n²) worst case. Recursion uses O(log n) stack space on balanced inputs and O(n) in the worst case.",
     pseudocode: [
       { id: "quick.header", text: "QUICK-SORT(A, low, high):" },
       { id: "quick.base", text: "    if low >= high: return" },
+      { id: "quick.pivot-select", text: "    pivotIndex = choose an index in [low, high] using the selected strategy" },
+      { id: "quick.pivot-move", text: "    if pivotIndex != high: swap A[pivotIndex] and A[high]" },
       { id: "quick.pivot", text: "    pivot = A[high]; boundary = low" },
       { id: "quick.partition", text: "    partition range low to high using Lomuto's method" },
       { id: "quick.compare", text: "        for j = low to high - 1: if A[j] <= pivot" },

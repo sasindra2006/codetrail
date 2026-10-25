@@ -5,8 +5,9 @@ export type PseudocodeLineId =
   | "linear.header" | "linear.length" | "linear.loop" | "linear.compare" | "linear.found" | "linear.return-not-found"
   | "binary.header" | "binary.initialize" | "binary.loop" | "binary.middle" | "binary.compare" | "binary.left" | "binary.right" | "binary.found" | "binary.return-not-found"
   | "merge.header" | "merge.base" | "merge.split" | "merge.initialize" | "merge.compare" | "merge.place" | "merge.complete" | "merge.return"
-  | "quick.header" | "quick.base" | "quick.partition" | "quick.pivot" | "quick.boundary" | "quick.compare" | "quick.swap" | "quick.pivot-place" | "quick.recurse-left" | "quick.recurse-right" | "quick.return"
-  | "heap.header" | "heap.build" | "heap.build-done" | "heap.sift" | "heap.left" | "heap.right" | "heap.swap" | "heap.sift-done" | "heap.extract" | "heap.extract-swap" | "heap.complete" | "heap.return";
+  | "quick.header" | "quick.base" | "quick.partition" | "quick.pivot-select" | "quick.pivot-move" | "quick.pivot" | "quick.boundary" | "quick.compare" | "quick.swap" | "quick.pivot-place" | "quick.recurse-left" | "quick.recurse-right" | "quick.return"
+  | "heap.header" | "heap.build" | "heap.build-done" | "heap.sift" | "heap.left" | "heap.right" | "heap.swap" | "heap.sift-done" | "heap.extract" | "heap.extract-swap" | "heap.complete" | "heap.return"
+  | "counting.header" | "counting.range" | "counting.initialize" | "counting.scan" | "counting.increment" | "counting.output-start" | "counting.emit" | "counting.return";
 
 export type PseudocodeLine = { id: PseudocodeLineId; text: string };
 
@@ -32,6 +33,7 @@ export type AlgorithmExecutionStep =
   | MergeSortStep
   | QuickSortStep
   | HeapSortStep
+  | CountingSortStep
   | CompleteStep;
 
 export type ComparisonStep = StepSnapshot & {
@@ -89,7 +91,9 @@ export type MergeSortStep = StepSnapshot & {
 };
 
 export type QuickSortStep = StepSnapshot & {
-  type: "quick-base" | "quick-partition" | "quick-pivot" | "quick-compare" | "quick-swap" | "quick-boundary" | "quick-pivot-place" | "quick-recurse";
+  type: "quick-base" | "quick-partition" | "quick-pivot-select" | "quick-pivot-move" | "quick-pivot" | "quick-compare" | "quick-swap" | "quick-boundary" | "quick-pivot-place" | "quick-recurse";
+  pivotStrategy: "last" | "middle" | "first" | "random" | "custom";
+  selectedPivotIndex?: number;
   low: number;
   high: number;
   pivotIndex: number;
@@ -111,6 +115,21 @@ export type HeapSortStep = StepSnapshot & {
   indices?: readonly [number, number];
   swapIndices?: readonly [number, number];
   extractedIndex?: number;
+};
+
+export type CountingSortStep = StepSnapshot & {
+  type: "counting-range" | "counting-initialize" | "counting-count" | "counting-counted" | "counting-output-start" | "counting-output-place";
+  phase: "count" | "output";
+  minimum: number;
+  maximum: number;
+  counts: readonly number[];
+  /** Frequency totals seen in the input; fixed once counting is complete. */
+  frequencies: readonly number[];
+  output: readonly (number | null)[];
+  inputIndex?: number;
+  bucketIndex?: number;
+  outputIndex?: number;
+  outputValue?: number;
 };
 
 export type CompleteStep = StepSnapshot & { type: "complete" };
