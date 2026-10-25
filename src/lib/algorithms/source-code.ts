@@ -28,4 +28,11 @@ export const algorithmSourceCode: CodeByAlgorithm = {
     Python: `def insertion_sort(values):\n    for i in range(1, len(values)):\n        key = values[i]\n        position = i - 1\n        while position >= 0 and values[position] > key:\n            values[position + 1] = values[position]\n            position -= 1\n        values[position + 1] = key\n    return values`,
     Python3: `class Solution:\n    def insertionSort(self, values: list[int]) -> list[int]:\n        for i in range(1, len(values)):\n            key = values[i]\n            position = i - 1\n            while position >= 0 and values[position] > key:\n                values[position + 1] = values[position]\n                position -= 1\n            values[position + 1] = key\n        return values`,
   },
+  linear: {
+    C: `int linear_search(const int array[], int length, int target) {\n    for (int i = 0; i < length; ++i) {\n        if (array[i] == target) return i;\n    }\n    return -1;\n}`,
+    "C++": `#include <vector>\n\nint linearSearch(const std::vector<int>& values, int target) {\n    for (std::size_t i = 0; i < values.size(); ++i) {\n        if (values[i] == target) return static_cast<int>(i);\n    }\n    return -1;\n}`,
+    Java: `class Solution {\n    public int linearSearch(int[] values, int target) {\n        for (int i = 0; i < values.length; i++) {\n            if (values[i] == target) return i;\n        }\n        return -1;\n    }\n}`,
+    Python: `def linear_search(values, target):\n    for index, value in enumerate(values):\n        if value == target:\n            return index\n    return -1`,
+    Python3: `class Solution:\n    def search(self, values: list[int], target: int) -> int:\n        for index, value in enumerate(values):\n            if value == target:\n                return index\n        return -1`,
+  },
 };

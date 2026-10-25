@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { executeBubbleSort } from "@/lib/algorithms/bubble-sort";
 import { executeSelectionSort } from "@/lib/algorithms/selection-sort";
 import { executeInsertionSort } from "@/lib/algorithms/insertion-sort";
+import { executeLinearSearch } from "@/lib/algorithms/linear-search";
 import type { AlgorithmExecutionStep } from "@/lib/algorithms/execution";
 import type { PseudocodeLine } from "@/lib/algorithms/execution";
 import { algorithmSourceCode, codeLanguages, type CodeLanguage } from "@/lib/algorithms/source-code";
@@ -14,7 +15,7 @@ const STEP_INTERVAL_MS = 650;
 const MIN_ARRAY_SIZE = 5;
 const MAX_ARRAY_SIZE = 10;
 
-export type SortingAlgorithm = "bubble" | "selection" | "insertion";
+export type SortingAlgorithm = "bubble" | "selection" | "insertion" | "linear";
 
 function describeStep(
   step: AlgorithmExecutionStep | undefined,
@@ -22,6 +23,7 @@ function describeStep(
   algorithm: SortingAlgorithm,
 ) {
   if (!step) {
+    if (algorithm === "linear") return "Ready to search the array from left to right.";
     if (algorithm === "bubble") return "Ready to compare adjacent values.";
     if (algorithm === "selection") return "Ready to find the minimum value.";
     return "Ready to insert each value into the sorted prefix.";
@@ -45,6 +47,9 @@ function describeStep(
   if (step.type === "key") return `Selected ${step.key} as the key to insert.`;
   if (step.type === "shift") return `Shifted ${step.array[step.to]} from index ${step.from} to ${step.to}. The key ${step.key} is waiting to be inserted.`;
   if (step.type === "insert") return `Inserted ${step.key} at index ${step.index}.`;
+  if (step.type === "search-compare") return `Checking index ${step.index}: ${step.array[step.index]} ${step.array[step.index] === step.target ? "matches" : "does not match"} target ${step.target}.`;
+  if (step.type === "search-found") return `Found ${step.target} at index ${step.index}. This is the first matching index.`;
+  if (step.type === "search-not-found") return `Target ${step.target} was not found after checking all ${count} values.`;
 
   return `Sorting complete. All ${count} values are in order. Reset to run it again.`;
 }
@@ -113,7 +118,8 @@ function ArrayBars({
     ? step.indices
     : step?.type === "minimum-update" ? [step.index]
     : step?.type === "shift" ? [step.from, step.to]
-      : step?.type === "key" || step?.type === "insert" ? [step.index] : [];
+      : step?.type === "key" || step?.type === "insert" ? [step.index]
+        : step?.type === "search-compare" || step?.type === "search-found" ? [step.index] : [];
   const keyValue = step && (step.type === "key" || step.type === "shift" || step.type === "insert") ? step.key : undefined;
 
   const swap = step?.type === "swap";
@@ -127,7 +133,10 @@ function ArrayBars({
       role="img"
     >
       {values.map((value, index) => {
-        const sorted = step?.sortedIndices.includes(index) ?? false;
+        const searching = step?.type === "search-compare" || step?.type === "search-found" || step?.type === "search-not-found";
+        const checked = searching && "checkedIndices" in step && step.checkedIndices.includes(index);
+        const found = (step?.type === "search-found") && step.index === index;
+        const sorted = !searching && (step?.sortedIndices.includes(index) ?? false);
         const active = activeIndices.includes(index);
 
         const height =
@@ -139,7 +148,11 @@ function ArrayBars({
 
         const isKey = keyValue !== undefined && step?.type === "key" && index === step.index;
         const shifting = step?.type === "shift" && activeIndices.includes(index);
-        const tone = isKey
+        const tone = found
+          ? "border-emerald-400 bg-emerald-400/25 text-foreground"
+          : searching && checked && !active
+            ? "border-line-strong bg-slate-500/20 text-muted"
+          : isKey
           ? "border-sky-400 bg-sky-400/20 text-foreground"
           : shifting
             ? "border-rose-500 bg-rose-500/20 text-foreground"
@@ -211,6 +224,9 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
   const [input, setInput] = useState<readonly number[]>(STARTING_ARRAY);
   const [inputText, setInputText] = useState(STARTING_ARRAY.join(", "));
   const [inputError, setInputError] = useState<string | null>(null);
+  const [target, setTarget] = useState(31);
+  const [targetText, setTargetText] = useState("31");
+  const [targetError, setTargetError] = useState<string | null>(null);
   const [stepCount, setStepCount] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [language, setLanguage] = useState<CodeLanguage>("C++");
@@ -253,12 +269,14 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
 
   const steps = useMemo(
     () =>
-      algorithm === "bubble"
+      algorithm === "linear"
+        ? executeLinearSearch(input, target)
+        : algorithm === "bubble"
         ? executeBubbleSort(input)
         : algorithm === "selection"
           ? executeSelectionSort(input)
           : executeInsertionSort(input),
-    [algorithm, input],
+    [algorithm, input, target],
   );
 
   const currentStep = stepCount > 0 ? steps[stepCount - 1] : undefined;
@@ -307,7 +325,7 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
         <h2 className="text-sm font-semibold text-foreground" id="algorithm-pseudocode-heading">Pseudocode</h2>
         <p className="mt-1 text-xs text-muted">Language-independent outline. The highlighted line matches the current step.</p>
       </div>
-      <ol aria-label={`${algorithm} sort pseudocode`} className="max-w-full overflow-x-auto p-3 font-mono text-sm leading-6 sm:p-4">
+      <ol aria-label={`${algorithm === "linear" ? "Linear search" : `${algorithm} sort`} pseudocode`} className="max-w-full overflow-x-auto p-3 font-mono text-sm leading-6 sm:p-4">
         {pseudocode.map((line, index) => {
           const active = currentStep?.lineId === line.id;
           return (
@@ -324,7 +342,7 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
       </ol>
     </section>
     <section
-      aria-label={`${algorithm === "bubble" ? "Bubble" : algorithm === "selection" ? "Selection" : "Insertion"} sort visualizer`}
+      aria-label={`${algorithm === "linear" ? "Linear search" : `${algorithm === "bubble" ? "Bubble" : algorithm === "selection" ? "Selection" : "Insertion"} sort`} visualizer`}
       className="border border-line bg-panel"
     >
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-4 sm:px-6">
@@ -333,7 +351,9 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
             Array visualization
           </h2>
           <p className="mt-1 text-xs text-muted">
-            {algorithm === "bubble"
+            {algorithm === "linear"
+              ? "Inspect one value at a time from left to right."
+              : algorithm === "bubble"
               ? "Compare neighbors, then follow each pass."
               : algorithm === "selection"
                 ? "Find the minimum remaining value on each pass."
@@ -414,6 +434,15 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
           )}
         </form>
 
+        {algorithm === "linear" ? (
+          <form className="mb-6" onSubmit={(event) => { event.preventDefault(); const trimmed = targetText.trim(); if (!/^-?\d+$/.test(trimmed) || Number(trimmed) < -100 || Number(trimmed) > 100) { setTargetError("Enter a whole-number target from -100 to 100."); return; } setTargetError(null); setTarget(Number(trimmed)); setStepCount(0); setPlaying(false); }}>
+            <label className="mb-2 block text-sm font-medium text-foreground" htmlFor="linear-target-input">Search target</label>
+            <div className="flex flex-col gap-2 sm:flex-row"><input className="min-h-10 border border-line-strong bg-surface px-3 py-2 font-mono text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-accent sm:w-40" id="linear-target-input" inputMode="numeric" max="100" min="-100" onChange={(event) => { setTargetText(event.target.value); setTargetError(null); }} value={targetText} aria-invalid={targetError !== null} aria-describedby="linear-target-help" /><button className="min-h-10 border border-accent bg-accent px-4 text-sm font-medium text-accent-foreground" type="submit">Apply target</button></div>
+            <p className="mt-2 text-xs text-muted" id="linear-target-help">Enter an integer from -100 to 100. The search returns the first match.</p>
+            {targetError ? <p className="mt-2 text-sm text-rose-500" role="alert">{targetError}</p> : null}
+          </form>
+        ) : null}
+
         <div
           className="mb-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted"
           aria-label="Visualization legend"
@@ -421,13 +450,15 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
           <span className="flex items-center gap-2">
             <i className="h-2.5 w-2.5 bg-amber-500" /> Comparing
           </span>
-          {algorithm === "insertion" ? <span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-sky-400" /> Active key</span> : null}
-          <span className="flex items-center gap-2">
-            <i className="h-2.5 w-2.5 bg-rose-500" /> {algorithm === "insertion" ? "Shifting" : "Swapping"}
-          </span>
-          <span className="flex items-center gap-2">
-            <i className="h-2.5 w-2.5 bg-emerald-500" /> Sorted
-          </span>
+          {algorithm === "linear" ? (
+            <><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-slate-500" /> Checked</span><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-emerald-400" /> Match</span></>
+          ) : (
+            <>
+              {algorithm === "insertion" ? <span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-sky-400" /> Active key</span> : null}
+              <span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-rose-500" /> {algorithm === "insertion" ? "Shifting" : "Swapping"}</span>
+              <span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-emerald-500" /> Sorted</span>
+            </>
+          )}
         </div>
 
         <div aria-live="polite" className="mb-3 flex h-8 items-start">

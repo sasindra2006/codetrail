@@ -16,7 +16,7 @@ export type AlgorithmInfo = {
   explanation: string;
   pseudocode: readonly PseudocodeLine[];
   properties: string;
-  visualizer: "bubble" | "selection" | "insertion";
+  visualizer: "bubble" | "selection" | "insertion" | "linear";
 };
 
 export const algorithms: AlgorithmInfo[] = [
@@ -79,6 +79,22 @@ export const algorithms: AlgorithmInfo[] = [
       { id: "insertion.return", text: "    return A" },
     ],
     properties: "Stable · In-place", visualizer: "insertion",
+  },
+  {
+  slug: "linear-search", name: "Linear Search", category: "Searching",
+  description: "Check each value from left to right until the target is found or the array ends.",
+  keywords: ["sequential", "target", "array", "search", "first match"],
+  timeComplexity: "O(n)", bestCase: "O(1)", averageCase: "O(n)", worstCase: "O(n)", spaceComplexity: "O(1)",
+  explanation: "Linear Search examines values from left to right, comparing each one with the target. It stops at the first match, so duplicate values return the first matching index. If every value has been checked, the target is not present. The search uses constant auxiliary space.",
+  pseudocode: [
+    { id: "linear.header", text: "LINEAR-SEARCH(A, target):" },
+    { id: "linear.length", text: "    n = length(A)" },
+    { id: "linear.loop", text: "    for i = 0 to n - 1:" },
+    { id: "linear.compare", text: "        if A[i] == target:" },
+    { id: "linear.found", text: "            return i" },
+    { id: "linear.return-not-found", text: "    return -1" },
+  ],
+  properties: "Sequential · First match", visualizer: "linear",
   },
 ];
 
