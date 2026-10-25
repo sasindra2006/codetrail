@@ -7,6 +7,7 @@ import { executeSelectionSort } from "@/lib/algorithms/selection-sort";
 import { executeInsertionSort } from "@/lib/algorithms/insertion-sort";
 import { executeLinearSearch } from "@/lib/algorithms/linear-search";
 import { executeBinarySearch } from "@/lib/algorithms/binary-search";
+import { executeMergeSort } from "@/lib/algorithms/merge-sort";
 import type { AlgorithmExecutionStep } from "@/lib/algorithms/execution";
 import type { PseudocodeLine } from "@/lib/algorithms/execution";
 import { algorithmSourceCode, codeLanguages, type CodeLanguage } from "@/lib/algorithms/source-code";
@@ -16,7 +17,7 @@ const STEP_INTERVAL_MS = 650;
 const MIN_ARRAY_SIZE = 5;
 const MAX_ARRAY_SIZE = 10;
 
-export type SortingAlgorithm = "bubble" | "selection" | "insertion" | "linear" | "binary";
+export type SortingAlgorithm = "bubble" | "selection" | "insertion" | "merge" | "linear" | "binary";
 
 function describeStep(
   step: AlgorithmExecutionStep | undefined,
@@ -57,6 +58,12 @@ function describeStep(
   if (step.type === "binary-right") return `Target is larger than ${step.array[step.mid]}; continue in the right half (indices ${step.low} to ${step.high}).`;
   if (step.type === "binary-found") return `Found ${step.target} at index ${step.mid}.`;
   if (step.type === "binary-not-found") return `Target ${step.target} was not found; the search interval is empty.`;
+  if (step.type === "merge-base") return `Range ${step.left}–${step.right} contains one value, so it is already sorted.`;
+  if (step.type === "merge-split") return `Split range ${step.left}–${step.right} at index ${step.mid} into ${step.left}–${step.mid} and ${step.mid + 1}–${step.right}.`;
+  if (step.type === "merge-start") return `Merge sorted ranges ${step.left}–${step.mid} and ${step.mid + 1}–${step.right}.`;
+  if (step.type === "merge-compare") return `Compare ${step.leftValue} from the left half (index ${step.leftCursor}) with ${step.rightValue} from the right half (index ${step.rightCursor}).`;
+  if (step.type === "merge-place") return `Place ${step.placedValue} from the ${step.placedFrom} half at index ${step.outputIndex}.`;
+  if (step.type === "merge-complete") return `Merged range ${step.left}–${step.right} is now in ascending order.`;
 
   return `Sorting complete. All ${count} values are in order. Reset to run it again.`;
 }
@@ -88,7 +95,7 @@ function sortAscending(values: readonly number[]) {
   return [...values].sort((left, right) => left - right);
 }
 
-function parseArrayInput(value: string): number[] {
+function parseArrayInput(value: string, enforceRange = false): number[] {
   const tokens = value.split(",").map((token) => token.trim());
 
   if (tokens.some((token) => token === "")) {
@@ -108,6 +115,9 @@ function parseArrayInput(value: string): number[] {
 
     if (!Number.isSafeInteger(number)) {
       throw new Error("Each number must be a safe integer.");
+    }
+    if (enforceRange && (number < -100 || number > 100)) {
+      throw new Error("Each number must be between -100 and 100.");
     }
 
     return number;
@@ -131,7 +141,9 @@ function ArrayBars({
     : step?.type === "shift" ? [step.from, step.to]
       : step?.type === "key" || step?.type === "insert" ? [step.index]
         : step?.type === "search-compare" || step?.type === "search-found" ? [step.index]
-          : step?.type === "binary-compare" || step?.type === "binary-left" || step?.type === "binary-right" || step?.type === "binary-found" ? [step.mid] : [];
+          : step?.type === "binary-compare" || step?.type === "binary-left" || step?.type === "binary-right" || step?.type === "binary-found" ? [step.mid]
+            : step?.type === "merge-compare" ? [step.leftCursor, step.rightCursor]
+              : step?.type === "merge-place" ? [step.outputIndex] : [];
   const keyValue = step && (step.type === "key" || step.type === "shift" || step.type === "insert") ? step.key : undefined;
 
   const swap = step?.type === "swap";
@@ -148,6 +160,11 @@ function ArrayBars({
         const searching = step?.type === "search-compare" || step?.type === "search-found" || step?.type === "search-not-found";
         const binary = step?.type === "binary-compare" || step?.type === "binary-left" || step?.type === "binary-right" || step?.type === "binary-found" || step?.type === "binary-not-found";
         const inRange = binary && step && "low" in step && index >= step.low && index <= step.high;
+        const merging = step?.type === "merge-base" || step?.type === "merge-split" || step?.type === "merge-start" || step?.type === "merge-compare" || step?.type === "merge-place" || step?.type === "merge-complete";
+        const inMergeRange = merging && step && "left" in step && index >= step.left && index <= step.right;
+        const mergeCompareIndex = step?.type === "merge-compare" && (index === step.leftCursor || index === step.rightCursor);
+        const mergeOutputIndex = step?.type === "merge-place" && index === step.outputIndex;
+        const mergeCompleteIndex = step?.type === "merge-complete" && index >= step.left && index <= step.right;
         const checked = searching && "checkedIndices" in step && step.checkedIndices.includes(index);
         const found = (step?.type === "search-found") && step.index === index;
         const binaryFound = step?.type === "binary-found" && step.mid === index;
@@ -167,6 +184,16 @@ function ArrayBars({
           ? "border-emerald-400 bg-emerald-400/25 text-foreground"
           : binary && !inRange
             ? "border-line bg-surface/50 text-muted opacity-50"
+          : mergeCompleteIndex
+            ? "border-emerald-500/70 bg-emerald-500/20 text-foreground"
+          : merging && !inMergeRange
+            ? "border-line bg-surface/50 text-muted opacity-40"
+          : mergeOutputIndex
+            ? "border-rose-400 bg-rose-400/25 text-foreground"
+          : mergeCompareIndex
+            ? "border-amber-400 bg-amber-400/20 text-foreground"
+          : merging && inMergeRange
+            ? "border-sky-500/70 bg-sky-500/10 text-foreground"
           : searching && checked && !active
             ? "border-line-strong bg-slate-500/20 text-muted"
           : isKey
@@ -187,12 +214,13 @@ function ArrayBars({
             key={index}
           >
             {binary && step && "low" in step ? <span className="mb-1 flex h-4 justify-center gap-1 font-mono text-[9px] font-semibold uppercase text-accent sm:text-[10px]">{step.low === index ? "L" : ""}{step.mid === index ? "M" : ""}{step.high === index ? "H" : ""}</span> : null}
+            {merging && step && "left" in step ? <span className="mb-1 flex h-4 justify-center gap-1 font-mono text-[9px] font-semibold uppercase text-accent sm:text-[10px]">{step.left === index ? "L" : ""}{step.mid === index ? "M" : ""}{step.right === index ? "R" : ""}{step.type === "merge-compare" && step.leftCursor === index ? "i" : ""}{step.type === "merge-compare" && step.rightCursor === index ? "j" : ""}{step.type === "merge-place" && step.outputIndex === index ? "k" : ""}</span> : null}
             <span
               className={`mb-2 font-mono text-xs ${
                 active || sorted ? "text-foreground" : "text-muted"
               }`}
             >
-              {value}
+              {step?.type === "merge-compare" && step.leftCursor === index ? step.leftValue : step?.type === "merge-compare" && step.rightCursor === index ? step.rightValue : value}
             </span>
 
             <div
@@ -293,6 +321,8 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
         ? executeBinarySearch(input, target)
         : algorithm === "linear"
         ? executeLinearSearch(input, target)
+        : algorithm === "merge"
+          ? executeMergeSort(input)
         : algorithm === "bubble"
         ? executeBubbleSort(input)
         : algorithm === "selection"
@@ -334,7 +364,7 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
 
   function applyInput() {
     try {
-      reset(parseArrayInput(inputText), true);
+      reset(parseArrayInput(inputText, algorithm === "merge"), true);
     } catch (error) {
       setInputError(
         error instanceof Error ? error.message : "Invalid array input.",
@@ -366,7 +396,7 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
       </ol>
     </section>
     <section
-      aria-label={`${algorithm === "linear" || algorithm === "binary" ? `${algorithm === "linear" ? "Linear" : "Binary"} search` : `${algorithm === "bubble" ? "Bubble" : algorithm === "selection" ? "Selection" : "Insertion"} sort`} visualizer`}
+      aria-label={`${algorithm === "linear" || algorithm === "binary" ? `${algorithm === "linear" ? "Linear" : "Binary"} search` : `${algorithm === "bubble" ? "Bubble" : algorithm === "selection" ? "Selection" : algorithm === "insertion" ? "Insertion" : "Merge"} sort`} visualizer`}
       className="border border-line bg-panel"
     >
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-4 sm:px-6">
@@ -381,6 +411,8 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
               ? "Inspect one value at a time from left to right."
               : algorithm === "bubble"
               ? "Compare neighbors, then follow each pass."
+              : algorithm === "merge"
+                ? "Follow recursive splits and merge sorted halves one value at a time."
               : algorithm === "selection"
                 ? "Find the minimum remaining value on each pass."
                 : "Hold each key, shift larger values, then insert it into the sorted prefix."}
@@ -482,6 +514,8 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
             <><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-slate-500" /> Checked</span><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-emerald-400" /> Match</span></>
           ) : algorithm === "binary" ? (
             <><span className="flex items-center gap-2"><i className="font-mono text-[10px] font-semibold text-accent">L</i> Low</span><span className="flex items-center gap-2"><i className="font-mono text-[10px] font-semibold text-accent">M</i> Mid</span><span className="flex items-center gap-2"><i className="font-mono text-[10px] font-semibold text-accent">H</i> High</span></>
+          ) : algorithm === "merge" ? (
+            <><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-sky-500" /> Active range</span><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-amber-400" /> Compare halves</span><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-rose-400" /> Place value</span><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-emerald-500" /> Merged</span></>
           ) : (
             <>
               {algorithm === "insertion" ? <span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-sky-400" /> Active key</span> : null}

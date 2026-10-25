@@ -16,7 +16,7 @@ export type AlgorithmInfo = {
   explanation: string;
   pseudocode: readonly PseudocodeLine[];
   properties: string;
-  visualizer: "bubble" | "selection" | "insertion" | "linear" | "binary";
+  visualizer: "bubble" | "selection" | "insertion" | "merge" | "linear" | "binary";
 };
 
 export const algorithms: AlgorithmInfo[] = [
@@ -79,6 +79,24 @@ export const algorithms: AlgorithmInfo[] = [
       { id: "insertion.return", text: "    return A" },
     ],
     properties: "Stable · In-place", visualizer: "insertion",
+  },
+  {
+    slug: "merge-sort", name: "Merge Sort", category: "Sorting",
+    description: "Recursively split the array, then merge sorted halves into ascending order.",
+    keywords: ["divide and conquer", "recursive", "merge", "stable", "array", "sorting"],
+    timeComplexity: "O(n log n)", bestCase: "O(n log n)", averageCase: "O(n log n)", worstCase: "O(n log n)", spaceComplexity: "O(n)",
+    explanation: "Merge Sort recursively divides the array into smaller ranges until each range contains one value. It then merges neighboring sorted ranges by comparing their front values and placing the smaller value into the output range. This top-down implementation is stable and uses O(n) auxiliary space.",
+    pseudocode: [
+      { id: "merge.header", text: "MERGE-SORT(A, left, right):" },
+      { id: "merge.base", text: "    if left >= right: return" },
+      { id: "merge.split", text: "    mid = floor((left + right) / 2); recursively sort both halves" },
+      { id: "merge.initialize", text: "    copy the left and right sorted halves" },
+      { id: "merge.compare", text: "    while both halves have values: compare their next values" },
+      { id: "merge.place", text: "        place the smaller value at the next output index" },
+      { id: "merge.complete", text: "    finish the merge after copying any remaining values" },
+      { id: "merge.return", text: "    return A" },
+    ],
+    properties: "Stable | Divide and conquer", visualizer: "merge",
   },
   {
   slug: "linear-search", name: "Linear Search", category: "Searching",
