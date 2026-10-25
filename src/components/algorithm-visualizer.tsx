@@ -8,6 +8,7 @@ import { executeInsertionSort } from "@/lib/algorithms/insertion-sort";
 import { executeLinearSearch } from "@/lib/algorithms/linear-search";
 import { executeBinarySearch } from "@/lib/algorithms/binary-search";
 import { executeMergeSort } from "@/lib/algorithms/merge-sort";
+import { executeQuickSort } from "@/lib/algorithms/quick-sort";
 import type { AlgorithmExecutionStep } from "@/lib/algorithms/execution";
 import type { PseudocodeLine } from "@/lib/algorithms/execution";
 import { algorithmSourceCode, codeLanguages, type CodeLanguage } from "@/lib/algorithms/source-code";
@@ -17,7 +18,7 @@ const STEP_INTERVAL_MS = 650;
 const MIN_ARRAY_SIZE = 5;
 const MAX_ARRAY_SIZE = 10;
 
-export type SortingAlgorithm = "bubble" | "selection" | "insertion" | "merge" | "linear" | "binary";
+export type SortingAlgorithm = "bubble" | "selection" | "insertion" | "merge" | "quick" | "linear" | "binary";
 
 function describeStep(
   step: AlgorithmExecutionStep | undefined,
@@ -64,6 +65,16 @@ function describeStep(
   if (step.type === "merge-compare") return `Compare ${step.leftValue} from the left half (index ${step.leftCursor}) with ${step.rightValue} from the right half (index ${step.rightCursor}).`;
   if (step.type === "merge-place") return `Place ${step.placedValue} from the ${step.placedFrom} half at index ${step.outputIndex}.`;
   if (step.type === "merge-complete") return `Merged range ${step.left}–${step.right} is now in ascending order.`;
+  if (step.type === "quick-base") return `Range ${step.low}–${step.high} has one value and is already sorted.`;
+  if (step.type === "quick-recurse") return `Recursively sort the nonempty ${step.side} range ${step.low}–${step.high}.`;
+  if (step.type === "quick-partition") return `Partition active range ${step.low}–${step.high} using its final value as the pivot.`;
+  if (step.type === "quick-pivot") return `Selected ${step.pivotValue} at index ${step.pivotIndex} as the pivot; boundary starts at ${step.boundary}.`;
+  if (step.type === "quick-compare") return step.array[step.scanIndex] <= step.pivotValue
+    ? `${step.array[step.scanIndex]} at index ${step.scanIndex} is less than or equal to pivot ${step.pivotValue}; it belongs in the left partition.`
+    : `${step.array[step.scanIndex]} at index ${step.scanIndex} is greater than pivot ${step.pivotValue}; it stays in the right partition.`;
+  if (step.type === "quick-swap") return `Value ${step.comparedValue} qualifies for the left partition; swap indices ${step.swapIndices?.[0]} and ${step.swapIndices?.[1]}.`;
+  if (step.type === "quick-boundary") return `Advance the partition boundary to index ${step.boundary}.`;
+  if (step.type === "quick-pivot-place") return `Pivot ${step.pivotValue} is now in its final position at index ${step.pivotIndex}.`;
 
   return `Sorting complete. All ${count} values are in order. Reset to run it again.`;
 }
@@ -143,7 +154,9 @@ function ArrayBars({
         : step?.type === "search-compare" || step?.type === "search-found" ? [step.index]
           : step?.type === "binary-compare" || step?.type === "binary-left" || step?.type === "binary-right" || step?.type === "binary-found" ? [step.mid]
             : step?.type === "merge-compare" ? [step.leftCursor, step.rightCursor]
-              : step?.type === "merge-place" ? [step.outputIndex] : [];
+            : step?.type === "merge-place" ? [step.outputIndex]
+              : step?.type === "quick-compare" ? [step.scanIndex]
+                : step?.type === "quick-swap" ? step.swapIndices ?? [] : [];
   const keyValue = step && (step.type === "key" || step.type === "shift" || step.type === "insert") ? step.key : undefined;
 
   const swap = step?.type === "swap";
@@ -165,6 +178,12 @@ function ArrayBars({
         const mergeCompareIndex = step?.type === "merge-compare" && (index === step.leftCursor || index === step.rightCursor);
         const mergeOutputIndex = step?.type === "merge-place" && index === step.outputIndex;
         const mergeCompleteIndex = step?.type === "merge-complete" && index >= step.left && index <= step.right;
+        const quick = step?.type === "quick-base" || step?.type === "quick-partition" || step?.type === "quick-pivot" || step?.type === "quick-compare" || step?.type === "quick-swap" || step?.type === "quick-boundary" || step?.type === "quick-pivot-place" || step?.type === "quick-recurse";
+        const inQuickRange = quick && step && "low" in step && index >= step.low && index <= step.high;
+        const quickPivot = quick && step && "pivotIndex" in step && index === step.pivotIndex;
+        const quickSwap = (step?.type === "quick-swap" || step?.type === "quick-pivot-place") && step.swapIndices?.includes(index) === true;
+        const quickFinalPivot = step?.type === "quick-pivot-place" && index === step.pivotIndex;
+        const quickBase = step?.type === "quick-base" && index === step.low;
         const checked = searching && "checkedIndices" in step && step.checkedIndices.includes(index);
         const found = (step?.type === "search-found") && step.index === index;
         const binaryFound = step?.type === "binary-found" && step.mid === index;
@@ -194,6 +213,18 @@ function ArrayBars({
             ? "border-amber-400 bg-amber-400/20 text-foreground"
           : merging && inMergeRange
             ? "border-sky-500/70 bg-sky-500/10 text-foreground"
+          : quickFinalPivot || quickBase
+            ? "border-emerald-400 bg-emerald-400/25 text-foreground"
+          : quickSwap
+            ? "border-rose-500 bg-rose-500/25 text-foreground"
+          : quick && !inQuickRange
+            ? "border-line bg-surface/50 text-muted opacity-40"
+          : quick && step?.type === "quick-compare" && step.scanIndex === index
+            ? "border-amber-400 bg-amber-400/20 text-foreground"
+          : quickPivot
+            ? "border-violet-400 bg-violet-400/20 text-foreground"
+          : quick && inQuickRange
+            ? "border-sky-500/70 bg-sky-500/10 text-foreground"
           : searching && checked && !active
             ? "border-line-strong bg-slate-500/20 text-muted"
           : isKey
@@ -215,6 +246,7 @@ function ArrayBars({
           >
             {binary && step && "low" in step ? <span className="mb-1 flex h-4 justify-center gap-1 font-mono text-[9px] font-semibold uppercase text-accent sm:text-[10px]">{step.low === index ? "L" : ""}{step.mid === index ? "M" : ""}{step.high === index ? "H" : ""}</span> : null}
             {merging && step && "left" in step ? <span className="mb-1 flex h-4 justify-center gap-1 font-mono text-[9px] font-semibold uppercase text-accent sm:text-[10px]">{step.left === index ? "L" : ""}{step.mid === index ? "M" : ""}{step.right === index ? "R" : ""}{step.type === "merge-compare" && step.leftCursor === index ? "i" : ""}{step.type === "merge-compare" && step.rightCursor === index ? "j" : ""}{step.type === "merge-place" && step.outputIndex === index ? "k" : ""}</span> : null}
+            {quick && step && "low" in step ? <span className="mb-1 flex h-4 justify-center gap-1 font-mono text-[9px] font-semibold uppercase text-accent sm:text-[10px]">{step.low === index ? "L" : ""}{step.high === index ? "H" : ""}{step.pivotIndex === index ? "P" : ""}{step.type === "quick-compare" && step.scanIndex === index ? "j" : ""}{step.type === "quick-boundary" && step.boundary === index ? "B" : ""}{step.type === "quick-swap" && step.boundary === index ? "B" : ""}</span> : null}
             <span
               className={`mb-2 font-mono text-xs ${
                 active || sorted ? "text-foreground" : "text-muted"
@@ -321,6 +353,8 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
         ? executeBinarySearch(input, target)
         : algorithm === "linear"
         ? executeLinearSearch(input, target)
+        : algorithm === "quick"
+          ? executeQuickSort(input)
         : algorithm === "merge"
           ? executeMergeSort(input)
         : algorithm === "bubble"
@@ -364,7 +398,7 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
 
   function applyInput() {
     try {
-      reset(parseArrayInput(inputText, algorithm === "merge"), true);
+      reset(parseArrayInput(inputText, algorithm === "merge" || algorithm === "quick"), true);
     } catch (error) {
       setInputError(
         error instanceof Error ? error.message : "Invalid array input.",
@@ -396,7 +430,7 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
       </ol>
     </section>
     <section
-      aria-label={`${algorithm === "linear" || algorithm === "binary" ? `${algorithm === "linear" ? "Linear" : "Binary"} search` : `${algorithm === "bubble" ? "Bubble" : algorithm === "selection" ? "Selection" : algorithm === "insertion" ? "Insertion" : "Merge"} sort`} visualizer`}
+      aria-label={`${algorithm === "linear" || algorithm === "binary" ? `${algorithm === "linear" ? "Linear" : "Binary"} search` : `${algorithm === "bubble" ? "Bubble" : algorithm === "selection" ? "Selection" : algorithm === "insertion" ? "Insertion" : algorithm === "merge" ? "Merge" : "Quick"} sort`} visualizer`}
       className="border border-line bg-panel"
     >
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-4 sm:px-6">
@@ -413,6 +447,8 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
               ? "Compare neighbors, then follow each pass."
               : algorithm === "merge"
                 ? "Follow recursive splits and merge sorted halves one value at a time."
+                : algorithm === "quick"
+                  ? "Follow the pivot, partition boundary, comparisons, and recursive ranges."
               : algorithm === "selection"
                 ? "Find the minimum remaining value on each pass."
                 : "Hold each key, shift larger values, then insert it into the sorted prefix."}
@@ -516,6 +552,8 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
             <><span className="flex items-center gap-2"><i className="font-mono text-[10px] font-semibold text-accent">L</i> Low</span><span className="flex items-center gap-2"><i className="font-mono text-[10px] font-semibold text-accent">M</i> Mid</span><span className="flex items-center gap-2"><i className="font-mono text-[10px] font-semibold text-accent">H</i> High</span></>
           ) : algorithm === "merge" ? (
             <><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-sky-500" /> Active range</span><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-amber-400" /> Compare halves</span><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-rose-400" /> Place value</span><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-emerald-500" /> Merged</span></>
+          ) : algorithm === "quick" ? (
+            <><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-sky-500" /> Active range</span><span className="flex items-center gap-2"><i className="font-mono text-[10px] font-semibold text-accent">B</i> Boundary</span><span className="flex items-center gap-2"><i className="font-mono text-[10px] font-semibold text-accent">j</i> Scan</span><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-violet-400" /> Pivot</span><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-amber-400" /> Comparing</span><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-rose-500" /> Swap</span><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-emerald-400" /> Pivot fixed</span></>
           ) : (
             <>
               {algorithm === "insertion" ? <span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-sky-400" /> Active key</span> : null}

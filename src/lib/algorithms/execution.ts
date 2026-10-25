@@ -4,7 +4,8 @@ export type PseudocodeLineId =
   | "insertion.header" | "insertion.length" | "insertion.outer-loop" | "insertion.key" | "insertion.position" | "insertion.while" | "insertion.shift" | "insertion.decrement" | "insertion.insert" | "insertion.return"
   | "linear.header" | "linear.length" | "linear.loop" | "linear.compare" | "linear.found" | "linear.return-not-found"
   | "binary.header" | "binary.initialize" | "binary.loop" | "binary.middle" | "binary.compare" | "binary.left" | "binary.right" | "binary.found" | "binary.return-not-found"
-  | "merge.header" | "merge.base" | "merge.split" | "merge.initialize" | "merge.compare" | "merge.place" | "merge.complete" | "merge.return";
+  | "merge.header" | "merge.base" | "merge.split" | "merge.initialize" | "merge.compare" | "merge.place" | "merge.complete" | "merge.return"
+  | "quick.header" | "quick.base" | "quick.partition" | "quick.pivot" | "quick.boundary" | "quick.compare" | "quick.swap" | "quick.pivot-place" | "quick.recurse-left" | "quick.recurse-right" | "quick.return";
 
 export type PseudocodeLine = { id: PseudocodeLineId; text: string };
 
@@ -28,6 +29,7 @@ export type AlgorithmExecutionStep =
   | SearchStep
   | BinarySearchStep
   | MergeSortStep
+  | QuickSortStep
   | CompleteStep;
 
 export type ComparisonStep = StepSnapshot & {
@@ -82,6 +84,19 @@ export type MergeSortStep = StepSnapshot & {
   rightValue?: number;
   placedValue?: number;
   placedFrom?: "left" | "right";
+};
+
+export type QuickSortStep = StepSnapshot & {
+  type: "quick-base" | "quick-partition" | "quick-pivot" | "quick-compare" | "quick-swap" | "quick-boundary" | "quick-pivot-place" | "quick-recurse";
+  low: number;
+  high: number;
+  pivotIndex: number;
+  pivotValue: number;
+  scanIndex: number;
+  boundary: number;
+  comparedValue?: number;
+  swapIndices?: readonly [number, number];
+  side?: "left" | "right";
 };
 
 export type CompleteStep = StepSnapshot & { type: "complete" };

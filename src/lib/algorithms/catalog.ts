@@ -16,7 +16,7 @@ export type AlgorithmInfo = {
   explanation: string;
   pseudocode: readonly PseudocodeLine[];
   properties: string;
-  visualizer: "bubble" | "selection" | "insertion" | "merge" | "linear" | "binary";
+  visualizer: "bubble" | "selection" | "insertion" | "merge" | "quick" | "linear" | "binary";
 };
 
 export const algorithms: AlgorithmInfo[] = [
@@ -79,6 +79,27 @@ export const algorithms: AlgorithmInfo[] = [
       { id: "insertion.return", text: "    return A" },
     ],
     properties: "Stable · In-place", visualizer: "insertion",
+  },
+  {
+    slug: "quick-sort", name: "Quick Sort", category: "Sorting",
+    description: "Partition around each range's last value, then recursively sort both sides.",
+    keywords: ["pivot", "Lomuto", "partition", "recursive", "in-place", "sorting"],
+    timeComplexity: "O(n log n) avg", bestCase: "O(n log n)", averageCase: "O(n log n)", worstCase: "O(n²)", spaceComplexity: "O(log n) avg; O(n) worst",
+    explanation: "Quick Sort selects the last value in the active range as its pivot. Lomuto partitioning scans the rest of the range, moving values less than or equal to the pivot to the left side while tracking a boundary. It then swaps the pivot into that boundary, where it reaches its final sorted position, and recursively sorts the nonempty ranges on either side. The partition is in-place; recursion uses O(log n) stack space on balanced inputs and O(n) in the worst case.",
+    pseudocode: [
+      { id: "quick.header", text: "QUICK-SORT(A, low, high):" },
+      { id: "quick.base", text: "    if low >= high: return" },
+      { id: "quick.pivot", text: "    pivot = A[high]; boundary = low" },
+      { id: "quick.partition", text: "    partition range low to high using Lomuto's method" },
+      { id: "quick.compare", text: "        for j = low to high - 1: if A[j] <= pivot" },
+      { id: "quick.swap", text: "            swap A[boundary] and A[j]" },
+      { id: "quick.boundary", text: "            boundary = boundary + 1" },
+      { id: "quick.pivot-place", text: "    swap A[boundary] and A[high]; pivot is final" },
+      { id: "quick.recurse-left", text: "    if low < boundary: QUICK-SORT(A, low, boundary - 1)" },
+      { id: "quick.recurse-right", text: "    if boundary < high: QUICK-SORT(A, boundary + 1, high)" },
+      { id: "quick.return", text: "    return A" },
+    ],
+    properties: "In-place partition · Recursive", visualizer: "quick",
   },
   {
     slug: "merge-sort", name: "Merge Sort", category: "Sorting",
