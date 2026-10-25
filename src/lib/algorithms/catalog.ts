@@ -16,7 +16,7 @@ export type AlgorithmInfo = {
   explanation: string;
   pseudocode: readonly PseudocodeLine[];
   properties: string;
-  visualizer: "bubble" | "selection" | "insertion" | "merge" | "quick" | "linear" | "binary";
+  visualizer: "bubble" | "selection" | "insertion" | "merge" | "quick" | "heap" | "linear" | "binary";
 };
 
 export const algorithms: AlgorithmInfo[] = [
@@ -79,6 +79,28 @@ export const algorithms: AlgorithmInfo[] = [
       { id: "insertion.return", text: "    return A" },
     ],
     properties: "Stable · In-place", visualizer: "insertion",
+  },
+  {
+    slug: "heap-sort", name: "Heap Sort", category: "Sorting",
+    description: "Build a max heap, then repeatedly extract its maximum into the sorted suffix.",
+    keywords: ["max heap", "heapify", "sift down", "in-place", "array", "sorting"],
+    timeComplexity: "O(n log n)", bestCase: "O(n log n)", averageCase: "O(n log n)", worstCase: "O(n log n)", spaceComplexity: "O(1)",
+    explanation: "Heap Sort first builds a max heap, where each parent is at least as large as its children. It then swaps the root with the final value in the active heap, shrinks the heap, and sifts the new root down to restore the max-heap property. Repeating this places values in ascending order in the growing suffix. This iterative implementation sorts in place using constant auxiliary space.",
+    pseudocode: [
+      { id: "heap.header", text: "HEAP-SORT(A):" },
+      { id: "heap.build", text: "    for parent = floor(n / 2) - 1 down to 0: siftDown(A, parent, n)" },
+      { id: "heap.build-done", text: "    heapSize = n" },
+      { id: "heap.extract", text: "    for end = n - 1 down to 1:" },
+      { id: "heap.extract-swap", text: "        swap A[0] with A[end]; decrease heapSize" },
+      { id: "heap.sift", text: "        siftDown(A, 0, heapSize)" },
+      { id: "heap.left", text: "            compare parent with its left child" },
+      { id: "heap.right", text: "            compare the larger candidate with its right child" },
+      { id: "heap.swap", text: "            swap parent with the larger child and continue" },
+      { id: "heap.sift-done", text: "        stop when the parent is at least as large as its children" },
+      { id: "heap.complete", text: "    all values are in ascending order" },
+      { id: "heap.return", text: "    return A" },
+    ],
+    properties: "In-place | Max heap", visualizer: "heap",
   },
   {
     slug: "quick-sort", name: "Quick Sort", category: "Sorting",

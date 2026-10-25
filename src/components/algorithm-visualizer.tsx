@@ -9,7 +9,9 @@ import { executeLinearSearch } from "@/lib/algorithms/linear-search";
 import { executeBinarySearch } from "@/lib/algorithms/binary-search";
 import { executeMergeSort } from "@/lib/algorithms/merge-sort";
 import { executeQuickSort } from "@/lib/algorithms/quick-sort";
+import { executeHeapSort } from "@/lib/algorithms/heap-sort";
 import type { AlgorithmExecutionStep } from "@/lib/algorithms/execution";
+import type { HeapSortStep } from "@/lib/algorithms/execution";
 import type { PseudocodeLine } from "@/lib/algorithms/execution";
 import { algorithmSourceCode, codeLanguages, type CodeLanguage } from "@/lib/algorithms/source-code";
 
@@ -18,7 +20,7 @@ const STEP_INTERVAL_MS = 650;
 const MIN_ARRAY_SIZE = 5;
 const MAX_ARRAY_SIZE = 10;
 
-export type SortingAlgorithm = "bubble" | "selection" | "insertion" | "merge" | "quick" | "linear" | "binary";
+export type SortingAlgorithm = "bubble" | "selection" | "insertion" | "merge" | "quick" | "heap" | "linear" | "binary";
 
 function describeStep(
   step: AlgorithmExecutionStep | undefined,
@@ -30,6 +32,7 @@ function describeStep(
     if (algorithm === "binary") return "Ready to search the ascending array by halving the interval.";
     if (algorithm === "bubble") return "Ready to compare adjacent values.";
     if (algorithm === "selection") return "Ready to find the minimum value.";
+    if (algorithm === "heap") return "Ready to build a max heap from the array.";
     return "Ready to insert each value into the sorted prefix.";
   }
 
@@ -75,6 +78,15 @@ function describeStep(
   if (step.type === "quick-swap") return `Value ${step.comparedValue} qualifies for the left partition; swap indices ${step.swapIndices?.[0]} and ${step.swapIndices?.[1]}.`;
   if (step.type === "quick-boundary") return `Advance the partition boundary to index ${step.boundary}.`;
   if (step.type === "quick-pivot-place") return `Pivot ${step.pivotValue} is now in its final position at index ${step.pivotIndex}.`;
+  if (step.type === "heap-build-start") return `Build the max heap by sifting down parent index ${step.parentIndex}.`;
+  if (step.type === "heapify-start") return `Sift down parent index ${step.parentIndex} within the active heap of ${step.activeHeapSize} values.`;
+  if (step.type === "heapify-compare") return `Compare heap values ${step.array[step.indices![0]]} at index ${step.indices![0]} and ${step.array[step.indices![1]]} at index ${step.indices![1]}.`;
+  if (step.type === "heapify-swap") return `Swap parent index ${step.parentIndex} with larger child index ${step.swapIndices![1]}, then continue sifting down.`;
+  if (step.type === "heapify-done") return `Parent index ${step.parentIndex} is at least as large as its children; this sift is complete.`;
+  if (step.type === "heap-built") return "The max heap is built. The root is the largest remaining value.";
+  if (step.type === "heap-extract") return `Move the maximum at the root to index ${step.extractedIndex}, the end of the active heap.`;
+  if (step.type === "heap-extract-swap") return `Placed ${step.array[step.extractedIndex!]} in the sorted suffix. The active heap now has ${step.activeHeapSize} values.`;
+  if (step.type === "heap-sorted") return "Heap Sort is complete; the entire array is in ascending order.";
 
   return `Sorting complete. All ${count} values are in order. Reset to run it again.`;
 }
@@ -156,7 +168,9 @@ function ArrayBars({
             : step?.type === "merge-compare" ? [step.leftCursor, step.rightCursor]
             : step?.type === "merge-place" ? [step.outputIndex]
               : step?.type === "quick-compare" ? [step.scanIndex]
-                : step?.type === "quick-swap" ? step.swapIndices ?? [] : [];
+                : step?.type === "quick-swap" ? step.swapIndices ?? []
+                  : step?.type === "heapify-compare" || step?.type === "heap-extract" ? step.indices ?? []
+                    : step?.type === "heapify-swap" || step?.type === "heap-extract-swap" ? step.swapIndices ?? [] : [];
   const keyValue = step && (step.type === "key" || step.type === "shift" || step.type === "insert") ? step.key : undefined;
 
   const swap = step?.type === "swap";
@@ -184,6 +198,12 @@ function ArrayBars({
         const quickSwap = (step?.type === "quick-swap" || step?.type === "quick-pivot-place") && step.swapIndices?.includes(index) === true;
         const quickFinalPivot = step?.type === "quick-pivot-place" && index === step.pivotIndex;
         const quickBase = step?.type === "quick-base" && index === step.low;
+        const heapStep = step && "activeHeapSize" in step ? step : undefined;
+        const heapCompared = heapStep?.type === "heapify-compare" && heapStep.indices?.includes(index) === true;
+        const heapSwapped = (heapStep?.type === "heapify-swap" || heapStep?.type === "heap-extract-swap") && heapStep.swapIndices?.includes(index) === true;
+        const heapParent = heapStep && heapStep.parentIndex === index;
+        const heapChild = heapStep && (heapStep.leftChildIndex === index || heapStep.rightChildIndex === index);
+        const heapSorted = heapStep && heapStep.sortedIndices.includes(index);
         const checked = searching && "checkedIndices" in step && step.checkedIndices.includes(index);
         const found = (step?.type === "search-found") && step.index === index;
         const binaryFound = step?.type === "binary-found" && step.mid === index;
@@ -201,6 +221,16 @@ function ArrayBars({
         const shifting = step?.type === "shift" && activeIndices.includes(index);
         const tone = found || binaryFound
           ? "border-emerald-400 bg-emerald-400/25 text-foreground"
+          : heapSorted
+            ? "border-emerald-500/70 bg-emerald-500/20 text-foreground"
+          : heapSwapped
+            ? "border-rose-500 bg-rose-500/25 text-foreground"
+          : heapCompared
+            ? "border-amber-400 bg-amber-400/25 text-foreground"
+          : heapParent
+            ? "border-violet-400 bg-violet-400/20 text-foreground"
+          : heapChild
+            ? "border-sky-500/70 bg-sky-500/15 text-foreground"
           : binary && !inRange
             ? "border-line bg-surface/50 text-muted opacity-50"
           : mergeCompleteIndex
@@ -264,6 +294,56 @@ function ArrayBars({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function HeapTree({ values, step }: { values: readonly number[]; step: AlgorithmExecutionStep | undefined }) {
+  const heapStep: HeapSortStep | undefined = step && "activeHeapSize" in step ? step : undefined;
+  const activeHeapSize = step?.type === "complete" ? 0 : heapStep?.activeHeapSize ?? values.length;
+  const width = 640;
+  const depth = Math.floor(Math.log2(Math.max(values.length, 1))) + 1;
+  const height = 48 + depth * 66;
+  const position = (index: number) => {
+    const level = Math.floor(Math.log2(index + 1));
+    const firstIndex = 2 ** level - 1;
+    const slot = index - firstIndex;
+    return { x: (width * (slot + 0.5)) / (2 ** level), y: 30 + level * 66 };
+  };
+  const nodeTone = (index: number) => {
+    if (index >= activeHeapSize) return "fill-emerald-500/20 stroke-emerald-500/80";
+    if (heapStep?.swapIndices?.includes(index)) return "fill-rose-500/25 stroke-rose-500";
+    if (heapStep?.indices?.includes(index)) return "fill-amber-400/25 stroke-amber-400";
+    if (heapStep?.parentIndex === index) return "fill-violet-400/20 stroke-violet-400";
+    if (heapStep && (heapStep.leftChildIndex === index || heapStep.rightChildIndex === index)) return "fill-sky-500/15 stroke-sky-500/80";
+    return "fill-hover stroke-line-strong";
+  };
+
+  return (
+    <div className="mt-6 border border-line bg-surface/40 p-3 sm:p-4">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-xs font-semibold text-foreground">Binary heap</h3>
+        <p className="text-xs text-muted">Node index matches the array index · active heap: {activeHeapSize}</p>
+      </div>
+      <div className="overflow-x-auto">
+        <svg aria-label={`Heap tree: ${values.map((value, index) => `index ${index}, value ${value}`).join("; ")}`} className="mx-auto h-auto w-full min-w-[480px] max-w-3xl" role="img" viewBox={`0 0 ${width} ${height}`}>
+          {values.map((_, index) => {
+            if (index === 0) return null;
+            const parent = Math.floor((index - 1) / 2);
+            const from = position(parent);
+            const to = position(index);
+            return <line key={`edge-${index}`} x1={from.x} y1={from.y + 19} x2={to.x} y2={to.y - 19} className={index >= activeHeapSize ? "stroke-emerald-500/50" : "stroke-line-strong"} strokeWidth="1.5" />;
+          })}
+          {values.map((value, index) => {
+            const { x, y } = position(index);
+            return <g key={`node-${index}`}>
+              <circle cx={x} cy={y} r="19" className={nodeTone(index)} strokeWidth="1.5" />
+              <text x={x} y={y + 4} textAnchor="middle" className="fill-foreground font-mono text-xs">{value}</text>
+              <text x={x} y={y + 31} textAnchor="middle" className="fill-muted font-mono text-[10px]">{index}</text>
+            </g>;
+          })}
+        </svg>
+      </div>
     </div>
   );
 }
@@ -355,6 +435,8 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
         ? executeLinearSearch(input, target)
         : algorithm === "quick"
           ? executeQuickSort(input)
+        : algorithm === "heap"
+          ? executeHeapSort(input)
         : algorithm === "merge"
           ? executeMergeSort(input)
         : algorithm === "bubble"
@@ -398,7 +480,7 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
 
   function applyInput() {
     try {
-      reset(parseArrayInput(inputText, algorithm === "merge" || algorithm === "quick"), true);
+      reset(parseArrayInput(inputText, algorithm === "merge" || algorithm === "quick" || algorithm === "heap"), true);
     } catch (error) {
       setInputError(
         error instanceof Error ? error.message : "Invalid array input.",
@@ -430,7 +512,7 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
       </ol>
     </section>
     <section
-      aria-label={`${algorithm === "linear" || algorithm === "binary" ? `${algorithm === "linear" ? "Linear" : "Binary"} search` : `${algorithm === "bubble" ? "Bubble" : algorithm === "selection" ? "Selection" : algorithm === "insertion" ? "Insertion" : algorithm === "merge" ? "Merge" : "Quick"} sort`} visualizer`}
+      aria-label={`${algorithm === "linear" || algorithm === "binary" ? `${algorithm === "linear" ? "Linear" : "Binary"} search` : `${algorithm === "bubble" ? "Bubble" : algorithm === "selection" ? "Selection" : algorithm === "insertion" ? "Insertion" : algorithm === "merge" ? "Merge" : algorithm === "heap" ? "Heap" : "Quick"} sort`} visualizer`}
       className="border border-line bg-panel"
     >
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-4 sm:px-6">
@@ -449,6 +531,8 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
                 ? "Follow recursive splits and merge sorted halves one value at a time."
                 : algorithm === "quick"
                   ? "Follow the pivot, partition boundary, comparisons, and recursive ranges."
+                : algorithm === "heap"
+                  ? "Build a max heap, extract its root, and restore the active heap."
               : algorithm === "selection"
                 ? "Find the minimum remaining value on each pass."
                 : "Hold each key, shift larger values, then insert it into the sorted prefix."}
@@ -552,6 +636,8 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
             <><span className="flex items-center gap-2"><i className="font-mono text-[10px] font-semibold text-accent">L</i> Low</span><span className="flex items-center gap-2"><i className="font-mono text-[10px] font-semibold text-accent">M</i> Mid</span><span className="flex items-center gap-2"><i className="font-mono text-[10px] font-semibold text-accent">H</i> High</span></>
           ) : algorithm === "merge" ? (
             <><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-sky-500" /> Active range</span><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-amber-400" /> Compare halves</span><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-rose-400" /> Place value</span><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-emerald-500" /> Merged</span></>
+          ) : algorithm === "heap" ? (
+            <><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-violet-400" /> Parent</span><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-sky-500" /> Children</span><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-amber-400" /> Comparing</span><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-rose-500" /> Swapping</span><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-emerald-500" /> Sorted suffix</span></>
           ) : algorithm === "quick" ? (
             <><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-sky-500" /> Active range</span><span className="flex items-center gap-2"><i className="font-mono text-[10px] font-semibold text-accent">B</i> Boundary</span><span className="flex items-center gap-2"><i className="font-mono text-[10px] font-semibold text-accent">j</i> Scan</span><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-violet-400" /> Pivot</span><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-amber-400" /> Comparing</span><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-rose-500" /> Swap</span><span className="flex items-center gap-2"><i className="h-2.5 w-2.5 bg-emerald-400" /> Pivot fixed</span></>
           ) : (
@@ -571,6 +657,7 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
           ) : null}
         </div>
         <ArrayBars values={values} step={currentStep} />
+        {algorithm === "heap" ? <HeapTree values={values} step={currentStep} /> : null}
 
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
           <p aria-live="polite" className="min-h-5 text-sm text-muted">

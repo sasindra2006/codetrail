@@ -5,7 +5,8 @@ export type PseudocodeLineId =
   | "linear.header" | "linear.length" | "linear.loop" | "linear.compare" | "linear.found" | "linear.return-not-found"
   | "binary.header" | "binary.initialize" | "binary.loop" | "binary.middle" | "binary.compare" | "binary.left" | "binary.right" | "binary.found" | "binary.return-not-found"
   | "merge.header" | "merge.base" | "merge.split" | "merge.initialize" | "merge.compare" | "merge.place" | "merge.complete" | "merge.return"
-  | "quick.header" | "quick.base" | "quick.partition" | "quick.pivot" | "quick.boundary" | "quick.compare" | "quick.swap" | "quick.pivot-place" | "quick.recurse-left" | "quick.recurse-right" | "quick.return";
+  | "quick.header" | "quick.base" | "quick.partition" | "quick.pivot" | "quick.boundary" | "quick.compare" | "quick.swap" | "quick.pivot-place" | "quick.recurse-left" | "quick.recurse-right" | "quick.return"
+  | "heap.header" | "heap.build" | "heap.build-done" | "heap.sift" | "heap.left" | "heap.right" | "heap.swap" | "heap.sift-done" | "heap.extract" | "heap.extract-swap" | "heap.complete" | "heap.return";
 
 export type PseudocodeLine = { id: PseudocodeLineId; text: string };
 
@@ -30,6 +31,7 @@ export type AlgorithmExecutionStep =
   | BinarySearchStep
   | MergeSortStep
   | QuickSortStep
+  | HeapSortStep
   | CompleteStep;
 
 export type ComparisonStep = StepSnapshot & {
@@ -97,6 +99,18 @@ export type QuickSortStep = StepSnapshot & {
   comparedValue?: number;
   swapIndices?: readonly [number, number];
   side?: "left" | "right";
+};
+
+export type HeapSortStep = StepSnapshot & {
+  type: "heap-build-start" | "heapify-start" | "heapify-compare" | "heapify-swap" | "heapify-done" | "heap-built" | "heap-extract" | "heap-extract-swap" | "heap-sorted";
+  phase: "build" | "extract";
+  activeHeapSize: number;
+  parentIndex: number;
+  leftChildIndex: number;
+  rightChildIndex: number;
+  indices?: readonly [number, number];
+  swapIndices?: readonly [number, number];
+  extractedIndex?: number;
 };
 
 export type CompleteStep = StepSnapshot & { type: "complete" };
