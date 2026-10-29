@@ -5,6 +5,7 @@ export type SampleCase = {
 };
 
 export type InternalProblem = {
+  kind?: "internal";
   slug: string;
   title: string;
   difficulty: "Easy";
@@ -15,6 +16,26 @@ export type InternalProblem = {
   explanation: string;
   starterCode: string;
 };
+
+export type ExternalProblem = {
+  kind: "codeforces";
+  contestId: number;
+  index: string;
+  title: string;
+  rating: number | null;
+  topics: string[];
+  solvedCount: number | null;
+  externalUrl: string;
+  starterCode: string;
+};
+
+export type WorkspaceProblem = InternalProblem | ExternalProblem;
+
+export function isExternalProblem(
+  problem: WorkspaceProblem
+): problem is ExternalProblem {
+  return problem.kind === "codeforces";
+}
 
 export const internalProblems: InternalProblem[] = [
   {

@@ -19,7 +19,10 @@ import {
   type IDockviewPanelHeaderProps,
   type IDockviewPanelProps,
 } from "dockview-react";
-import type { InternalProblem } from "@/lib/problems";
+import {
+  isExternalProblem,
+  type WorkspaceProblem,
+} from "@/lib/problems";
 
 const DockviewReact = dynamic(
   () => import("dockview-react").then((module) => module.DockviewReact),
@@ -46,7 +49,7 @@ type SampleResult = {
 type RunResponse = { results?: SampleResult[]; error?: string };
 
 type WorkspaceContextType = {
-  problem: InternalProblem;
+  problem: WorkspaceProblem;
   sourceCode: string;
   setSourceCode: (code: string) => void;
   editorTheme: "vs-dark" | "vs";
@@ -77,6 +80,7 @@ function WorkspaceTab(props: IDockviewPanelHeaderProps) {
 
 function DescriptionPanel() {
   const { problem, resetLayout } = useWorkspace();
+  const isExternal = isExternalProblem(problem);
 
   return (
     <div className="problem-description-scrollbar flex h-full min-h-0 flex-col overflow-y-auto overscroll-contain px-5 py-5 sm:px-6">
@@ -91,17 +95,36 @@ function DescriptionPanel() {
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-xl font-semibold tracking-tight">{problem.title}</h1>
-              <span className="border border-line-strong px-2 py-1 text-xs text-muted">
-                {problem.difficulty}
-              </span>
-            </div>
-            <div className="mt-3 flex flex-wrap gap-1.5" aria-label="Problem topics">
-              {problem.topics.map((topic) => (
-                <span className="border border-line px-2 py-1 text-xs text-muted" key={topic}>
-                  {topic}
+              {isExternal ? (
+                <>
+                  <span className="border border-line-strong px-2 py-1 font-mono text-xs text-muted">
+                    {problem.contestId}{problem.index}
+                  </span>
+                  {problem.rating !== null ? (
+                    <span className="border border-line-strong px-2 py-1 text-xs text-muted">
+                      Rating: {problem.rating}
+                    </span>
+                  ) : (
+                    <span className="border border-line-strong px-2 py-1 text-xs text-muted">
+                      Unrated
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span className="border border-line-strong px-2 py-1 text-xs text-muted">
+                  {problem.difficulty}
                 </span>
-              ))}
+              )}
             </div>
+            {problem.topics.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-1.5" aria-label="Problem topics">
+                {problem.topics.map((topic) => (
+                  <span className="border border-line px-2 py-1 text-xs text-muted" key={topic}>
+                    {topic}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
           <button
             aria-label="Reset workspace layout"
@@ -127,56 +150,124 @@ function DescriptionPanel() {
           </button>
         </div>
       </div>
-      <div className="flex flex-col gap-6">
-        <section>
-          <h3 className="text-sm font-semibold">Description</h3>
-          <p className="mt-2 whitespace-pre-line text-sm leading-7 text-muted">
-            {problem.statement}
-          </p>
-        </section>
-        <section>
-          <h3 className="text-sm font-semibold">Constraints</h3>
-          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm leading-6 text-muted">
-            {problem.constraints.map((constraint) => (
-              <li key={constraint}>{constraint}</li>
-            ))}
-          </ul>
-        </section>
-        <section>
-          <h3 className="text-sm font-semibold">Examples</h3>
-          <div className="mt-3 space-y-3">
-            {problem.samples.map((sample) => (
-              <div className="border border-line bg-surface p-3" key={sample.name}>
-                <p className="mb-3 text-xs font-medium text-muted">{sample.name}</p>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div>
-                    <p className="mb-1 text-[11px] uppercase tracking-wide text-muted">Input</p>
-                    <pre className="overflow-x-auto whitespace-pre-wrap font-mono text-xs leading-5">
-                      {sample.input.trimEnd()}
-                    </pre>
-                  </div>
-                  <div>
-                    <p className="mb-1 text-[11px] uppercase tracking-wide text-muted">Output</p>
-                    <pre className="overflow-x-auto whitespace-pre-wrap font-mono text-xs leading-5">
-                      {sample.expectedOutput.trimEnd()}
-                    </pre>
+      {isExternal ? (
+        <div className="flex flex-col gap-6">
+          <section className="border border-line bg-surface p-4">
+            <h3 className="text-sm font-semibold text-foreground">External Codeforces Problem</h3>
+            <p className="mt-2 text-xs leading-6 text-muted">
+              The Codeforces public API provides problem metadata but does not distribute problem statements, constraints, or sample tests. The full problem statement is hosted on the official Codeforces platform.
+            </p>
+            <div className="mt-4">
+              <a
+                className="inline-flex items-center gap-1.5 border border-line-strong bg-panel px-3.5 py-2 text-xs font-medium text-foreground outline-none transition-colors hover:bg-hover focus-visible:ring-2 focus-visible:ring-accent"
+                href={problem.externalUrl}
+                rel="noreferrer"
+                target="_blank"
+              >
+                View official problem on Codeforces
+                <svg
+                  aria-hidden="true"
+                  className="size-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M14 4h6v6m0-6-9 9" />
+                  <path d="M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6" />
+                </svg>
+              </a>
+            </div>
+          </section>
+
+          <section>
+            <h3 className="text-sm font-semibold">Problem Metadata</h3>
+            <dl className="mt-3 grid grid-cols-2 gap-3 text-xs sm:grid-cols-3">
+              <div className="border border-line bg-surface p-3">
+                <dt className="text-[11px] uppercase tracking-wide text-muted">Contest ID</dt>
+                <dd className="mt-1 font-mono font-medium text-foreground">{problem.contestId}</dd>
+              </div>
+              <div className="border border-line bg-surface p-3">
+                <dt className="text-[11px] uppercase tracking-wide text-muted">Problem Index</dt>
+                <dd className="mt-1 font-mono font-medium text-foreground">{problem.index}</dd>
+              </div>
+              <div className="border border-line bg-surface p-3">
+                <dt className="text-[11px] uppercase tracking-wide text-muted">Rating</dt>
+                <dd className="mt-1 font-medium text-foreground">
+                  {problem.rating !== null ? problem.rating : "Unrated"}
+                </dd>
+              </div>
+              {problem.solvedCount !== null && (
+                <div className="border border-line bg-surface p-3 col-span-2 sm:col-span-3">
+                  <dt className="text-[11px] uppercase tracking-wide text-muted">Solved Count</dt>
+                  <dd className="mt-1 font-medium text-foreground">
+                    {problem.solvedCount.toLocaleString()} accepted submissions on Codeforces
+                  </dd>
+                </div>
+              )}
+            </dl>
+          </section>
+
+          <section>
+            <h3 className="text-sm font-semibold">Workspace Notes</h3>
+            <p className="mt-2 text-xs leading-6 text-muted">
+              You can draft, structure, and edit your solution in C++17 using the Monaco code editor on the right. Sample execution and automatic submission for external catalog problems will be supported in upcoming milestones once test suites are integrated.
+            </p>
+          </section>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-6">
+          <section>
+            <h3 className="text-sm font-semibold">Description</h3>
+            <p className="mt-2 whitespace-pre-line text-sm leading-7 text-muted">
+              {problem.statement}
+            </p>
+          </section>
+          <section>
+            <h3 className="text-sm font-semibold">Constraints</h3>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm leading-6 text-muted">
+              {problem.constraints.map((constraint) => (
+                <li key={constraint}>{constraint}</li>
+              ))}
+            </ul>
+          </section>
+          <section>
+            <h3 className="text-sm font-semibold">Examples</h3>
+            <div className="mt-3 space-y-3">
+              {problem.samples.map((sample) => (
+                <div className="border border-line bg-surface p-3" key={sample.name}>
+                  <p className="mb-3 text-xs font-medium text-muted">{sample.name}</p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <p className="mb-1 text-[11px] uppercase tracking-wide text-muted">Input</p>
+                      <pre className="overflow-x-auto whitespace-pre-wrap font-mono text-xs leading-5">
+                        {sample.input.trimEnd()}
+                      </pre>
+                    </div>
+                    <div>
+                      <p className="mb-1 text-[11px] uppercase tracking-wide text-muted">Output</p>
+                      <pre className="overflow-x-auto whitespace-pre-wrap font-mono text-xs leading-5">
+                        {sample.expectedOutput.trimEnd()}
+                      </pre>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        </section>
-        <section>
-          <h3 className="text-sm font-semibold">Explanation</h3>
-          <p className="mt-2 text-sm leading-6 text-muted">{problem.explanation}</p>
-        </section>
-      </div>
+              ))}
+            </div>
+          </section>
+          <section>
+            <h3 className="text-sm font-semibold">Explanation</h3>
+            <p className="mt-2 text-sm leading-6 text-muted">{problem.explanation}</p>
+          </section>
+        </div>
+      )}
     </div>
   );
 }
 
 function EditorPanel() {
   const {
+    problem,
     sourceCode,
     setSourceCode,
     running,
@@ -185,6 +276,7 @@ function EditorPanel() {
     editorRef,
     monacoRef,
   } = useWorkspace();
+  const isExternal = isExternalProblem(problem);
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col">
@@ -192,14 +284,26 @@ function EditorPanel() {
         <span className="hidden select-none whitespace-nowrap text-[11px] text-muted sm:inline">
           C++17 · GNU G++17
         </span>
-        <button
-          className="inline-flex h-8 shrink-0 items-center gap-2 bg-accent px-3 text-xs font-semibold text-accent-foreground outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-60"
-          disabled={running}
-          onClick={runSamples}
-          type="button"
-        >
-          {running ? "Running…" : "Run samples"}
-        </button>
+        {isExternal ? (
+          <button
+            aria-disabled="true"
+            className="inline-flex h-8 shrink-0 cursor-not-allowed items-center gap-2 border border-line bg-panel px-3 text-xs font-semibold text-muted opacity-60 outline-none"
+            disabled
+            title="Sample execution is disabled for external problems"
+            type="button"
+          >
+            Samples unavailable
+          </button>
+        ) : (
+          <button
+            className="inline-flex h-8 shrink-0 items-center gap-2 bg-accent px-3 text-xs font-semibold text-accent-foreground outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-60"
+            disabled={running}
+            onClick={runSamples}
+            type="button"
+          >
+            {running ? "Running…" : "Run samples"}
+          </button>
+        )}
       </div>
       <div className="min-h-0 min-w-0 flex-1">
         <CodeEditor
@@ -234,7 +338,49 @@ function EditorPanel() {
 }
 
 function ResultsPanel() {
-  const { results, runError, selectedSample, setSelectedSample } = useWorkspace();
+  const { problem, results, runError, selectedSample, setSelectedSample } = useWorkspace();
+  const isExternal = isExternalProblem(problem);
+
+  if (isExternal) {
+    return (
+      <div className="flex h-full min-h-0 flex-col">
+        <div className="flex min-h-11 shrink-0 items-center justify-between border-b border-line px-4">
+          <span className="text-xs font-medium text-muted">Testcase / Test Result</span>
+          <span className="border border-line px-1.5 py-0.5 text-[11px] text-muted">External</span>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-6">
+          <div className="border border-line bg-surface p-4">
+            <h4 className="text-sm font-medium text-foreground">Sample tests not yet available</h4>
+            <p className="mt-2 text-xs leading-6 text-muted">
+              Execution against sample test cases is currently supported for CodeTrail built-in problems. External Codeforces problems do not provide sample inputs and expected outputs via their public API.
+            </p>
+            <div className="mt-4">
+              <a
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-accent hover:underline focus-visible:ring-2 focus-visible:ring-accent"
+                href={problem.externalUrl}
+                rel="noreferrer"
+                target="_blank"
+              >
+                View problem test cases on Codeforces
+                <svg
+                  aria-hidden="true"
+                  className="size-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M14 4h6v6m0-6-9 9" />
+                  <path d="M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6" />
+                </svg>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const activeResult = results?.[selectedSample];
   const passedCount = results?.filter((result) => result.passed).length ?? 0;
 
@@ -336,7 +482,7 @@ const panelComponents: Record<PanelId, (props: IDockviewPanelProps) => React.Rea
   results: ResultsPanel,
 };
 
-export function ProblemWorkspace({ problem }: { problem: InternalProblem }) {
+export function ProblemWorkspace({ problem }: { problem: WorkspaceProblem }) {
   const [sourceCode, setSourceCode] = useState(problem.starterCode);
   const [editorTheme, setEditorTheme] = useState<"vs-dark" | "vs">("vs-dark");
   const [running, setRunning] = useState(false);
@@ -364,6 +510,7 @@ export function ProblemWorkspace({ problem }: { problem: InternalProblem }) {
   }, []);
 
   const runSamples = useCallback(async () => {
+    if (isExternalProblem(problem)) return;
     setRunning(true);
     setRunError(null);
     setResults(null);
@@ -386,7 +533,7 @@ export function ProblemWorkspace({ problem }: { problem: InternalProblem }) {
     } finally {
       setRunning(false);
     }
-  }, [problem.slug, sourceCode]);
+  }, [problem, sourceCode]);
 
   const resetLayout = useCallback(() => {
     localStorage.removeItem(layoutStorageKey);

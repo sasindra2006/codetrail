@@ -30,9 +30,9 @@ async function loadProblems(): Promise<Problem[]> {
 const difficultyOptions: { value: Difficulty; label: string }[] = [
   { value: "all", label: "All ratings" },
   { value: "unrated", label: "Unrated" },
-  { value: "800-1200", label: "800â€“1200" },
-  { value: "1300-1600", label: "1300â€“1600" },
-  { value: "1700-2000", label: "1700â€“2000" },
+  { value: "800-1200", label: "800–1200" },
+  { value: "1300-1600", label: "1300–1600" },
+  { value: "1700-2000", label: "1700–2000" },
   { value: "2100+", label: "2100+" },
 ];
 
@@ -47,7 +47,7 @@ function matchesDifficulty(rating: number | null, difficulty: Difficulty) {
 }
 
 function formatSolvedCount(count: number | null) {
-  if (count === null) return "â€”";
+  if (count === null) return "—";
   return new Intl.NumberFormat("en", { notation: count >= 1000 ? "compact" : "standard", maximumFractionDigits: 1 }).format(count);
 }
 
@@ -96,7 +96,7 @@ export function ProblemList() {
           <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">Solve CodeTrail practice problems in the built-in C++ editor, or browse the Codeforces catalog by title, rating, and topic.</p>
         </div>
         <p className="shrink-0 text-sm text-muted" aria-live="polite">
-          {loading ? "Loading problem setâ€¦" : error ? "Problem set unavailable" : `${filteredProblems.length.toLocaleString()} of ${problems.length.toLocaleString()} problems`}
+          {loading ? "Loading problem set…" : error ? "Problem set unavailable" : `${filteredProblems.length.toLocaleString()} of ${problems.length.toLocaleString()} problems`}
         </p>
       </header>
 
@@ -113,7 +113,10 @@ export function ProblemList() {
       </section>
 
       <section className="flex flex-col gap-6" aria-labelledby="codeforces-catalog-heading">
-      <div className="flex flex-col gap-1 border-b border-line pb-4"><h2 className="text-lg font-semibold text-foreground" id="codeforces-catalog-heading">Codeforces catalog</h2><p className="text-sm text-muted">Browse external problems. Selecting one opens the official Codeforces page.</p></div>
+      <div className="flex flex-col gap-1 border-b border-line pb-4">
+        <h2 className="text-lg font-semibold text-foreground" id="codeforces-catalog-heading">Codeforces catalog</h2>
+        <p className="text-sm text-muted">Browse external problems. Select a problem to solve it inside CodeTrail or view the official problem on Codeforces.</p>
+      </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(15rem,1fr)_12rem_minmax(12rem,16rem)]">
         <label className="flex flex-col gap-2 text-xs font-medium text-muted">
           Search problems
@@ -140,7 +143,7 @@ export function ProblemList() {
       {loading ? (
         <div className="border border-line bg-panel px-5 py-14 text-center" role="status"><p className="text-sm font-medium text-foreground">Loading problems</p><p className="mt-2 text-sm text-muted">Fetching the latest available Codeforces problem set.</p></div>
       ) : error ? (
-        <div className="border border-line bg-panel px-5 py-12 text-center" role="alert"><p className="text-sm font-medium text-foreground">We couldnâ€™t load the problem set</p><p className="mt-2 text-sm text-muted">{error}</p><button className="mt-5 border border-line-strong px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent" onClick={() => { cachedProblems = null; setError(null); setLoading(true); loadProblems().then(setProblems).catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "Unable to load problems.")).finally(() => setLoading(false)); }} type="button">Try again</button></div>
+        <div className="border border-line bg-panel px-5 py-12 text-center" role="alert"><p className="text-sm font-medium text-foreground">We couldn’t load the problem set</p><p className="mt-2 text-sm text-muted">{error}</p><button className="mt-5 border border-line-strong px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent" onClick={() => { cachedProblems = null; setError(null); setLoading(true); loadProblems().then(setProblems).catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "Unable to load problems.")).finally(() => setLoading(false)); }} type="button">Try again</button></div>
       ) : filteredProblems.length === 0 ? (
         <div className="border border-line bg-panel px-5 py-14 text-center"><p className="text-sm font-medium text-foreground">No matching problems</p><p className="mt-2 text-sm text-muted">Try another search or adjust the selected filters.</p><button className="mt-4 text-sm font-medium text-accent hover:underline" onClick={() => { setQuery(""); setDifficulty("all"); setSelectedTag("all"); }} type="button">Clear filters</button></div>
       ) : (
@@ -150,20 +153,104 @@ export function ProblemList() {
               <thead><tr className="border-b border-line bg-surface text-[11px] font-medium uppercase tracking-[0.12em] text-muted"><th className="px-5 py-3">Problem</th><th className="px-4 py-3">Rating</th><th className="px-4 py-3">Topics</th><th className="px-4 py-3 text-right">Solved</th><th className="px-5 py-3 text-right">Action</th></tr></thead>
               <tbody>{filteredProblems.slice(0, 100).map((problem, index) => {
                 const url = problemUrl(problem);
-                return <tr className="border-b border-line last:border-0 hover:bg-hover/50" key={`${problem.contestId ?? "unknown"}-${problem.index}-${problem.title}-${index}`}>
-                  <td className="px-5 py-4"><div className="font-medium text-foreground">{problem.title}</div><div className="mt-1 font-mono text-xs text-muted">{problem.contestId === null ? "Problem" : `${problem.contestId}${problem.index}`}</div></td>
-                  <td className="px-4 py-4 text-sm tabular-nums text-muted">{problem.rating ?? "â€”"}</td>
-                  <td className="px-4 py-4"><div className="flex max-w-sm flex-wrap gap-1.5">{problem.tags.length ? problem.tags.slice(0, 3).map((tag) => <button className="border border-line-strong px-2 py-1 text-xs text-muted transition-colors hover:border-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent" key={tag} onClick={() => setSelectedTag(tag)} type="button">{tag}</button>) : <span className="text-sm text-muted">â€”</span>}{problem.tags.length > 3 && <span className="px-1 py-1 text-xs text-muted">+{problem.tags.length - 3}</span>}</div></td>
-                  <td className="px-4 py-4 text-right text-sm tabular-nums text-muted">{formatSolvedCount(problem.solvedCount)}</td>
-                  <td className="px-5 py-4 text-right">{url ? <a className="inline-flex items-center gap-1.5 whitespace-nowrap text-sm font-medium text-accent outline-none hover:underline focus-visible:ring-2 focus-visible:ring-accent" href={url} rel="noreferrer" target="_blank">Open problem<svg aria-hidden="true" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M14 4h6v6m0-6-9 9"/><path d="M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6"/></svg></a> : <span className="text-xs text-muted">Link unavailable</span>}</td>
-                </tr>;
+                const hasValidInternalRoute = problem.contestId !== null && /^\w+$/.test(problem.index);
+                return (
+                  <tr className="border-b border-line last:border-0 hover:bg-hover/50" key={`${problem.contestId ?? "unknown"}-${problem.index}-${problem.title}-${index}`}>
+                    <td className="px-5 py-4">
+                      <div className="font-medium text-foreground">{problem.title}</div>
+                      <div className="mt-1 font-mono text-xs text-muted">
+                        {problem.contestId === null ? "Problem" : `${problem.contestId}${problem.index}`}
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 text-sm tabular-nums text-muted">{problem.rating ?? "—"}</td>
+                    <td className="px-4 py-4">
+                      <div className="flex max-w-sm flex-wrap gap-1.5">
+                        {problem.tags.length ? (
+                          problem.tags.slice(0, 3).map((tag) => (
+                            <button
+                              className="border border-line-strong px-2 py-1 text-xs text-muted transition-colors hover:border-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                              key={tag}
+                              onClick={() => setSelectedTag(tag)}
+                              type="button"
+                            >
+                              {tag}
+                            </button>
+                          ))
+                        ) : (
+                          <span className="text-sm text-muted">—</span>
+                        )}
+                        {problem.tags.length > 3 && (
+                          <span className="px-1 py-1 text-xs text-muted">+{problem.tags.length - 3}</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 text-right text-sm tabular-nums text-muted">{formatSolvedCount(problem.solvedCount)}</td>
+                    <td className="px-5 py-4 text-right">
+                      {hasValidInternalRoute ? (
+                        <div className="flex items-center justify-end gap-3">
+                          <Link
+                            className="inline-flex items-center whitespace-nowrap text-xs font-semibold text-accent outline-none hover:underline focus-visible:ring-2 focus-visible:ring-accent"
+                            href={`/problems/codeforces/${problem.contestId}/${problem.index}`}
+                          >
+                            Solve in CodeTrail
+                          </Link>
+                          {url && (
+                            <a
+                              aria-label={`View ${problem.title} on Codeforces (external link)`}
+                              className="inline-flex items-center gap-1 whitespace-nowrap text-xs text-muted outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-accent"
+                              href={url}
+                              rel="noreferrer"
+                              target="_blank"
+                              title="View on Codeforces"
+                            >
+                              <span>View on Codeforces</span>
+                              <svg
+                                aria-hidden="true"
+                                className="size-3"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.8"
+                                viewBox="0 0 24 24"
+                              >
+                                <path d="M14 4h6v6m0-6-9 9" />
+                                <path d="M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6" />
+                              </svg>
+                            </a>
+                          )}
+                        </div>
+                      ) : url ? (
+                        <a
+                          className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs font-medium text-accent outline-none hover:underline focus-visible:ring-2 focus-visible:ring-accent"
+                          href={url}
+                          rel="noreferrer"
+                          target="_blank"
+                        >
+                          View on Codeforces
+                          <svg
+                            aria-hidden="true"
+                            className="size-3"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.8"
+                            viewBox="0 0 24 24"
+                          >
+                            <path d="M14 4h6v6m0-6-9 9" />
+                            <path d="M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6" />
+                          </svg>
+                        </a>
+                      ) : (
+                        <span className="text-xs text-muted">Unavailable</span>
+                      )}
+                    </td>
+                  </tr>
+                );
               })}</tbody>
             </table>
           </div>
           {filteredProblems.length > 100 && <p className="border-t border-line px-5 py-3 text-xs text-muted">Showing the first 100 matches. Refine your search or filters to find a specific problem.</p>}
         </div>
       )}
-      <p className="text-xs leading-5 text-muted">Problem metadata is provided by Codeforces. Problem statements and submissions remain on the official site.</p>
+      <p className="text-xs leading-5 text-muted">Problem metadata is provided by Codeforces. Solve within CodeTrail&apos;s editor or view the original problem statements on Codeforces.</p>
       </section>
     </section>
   );

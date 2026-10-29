@@ -90,7 +90,7 @@ function Sidebar() {
 
 function Header({ showNavigation = true }: { showNavigation?: boolean }) {
   const pathname = usePathname();
-  const isProblemDetail = /^\/problems\/[^/]+$/.test(pathname);
+  const isProblemDetail = pathname.startsWith("/problems/") && pathname !== "/problems";
   const currentSection =
     navigationItems.find((item) => isNavigationItemActive(pathname, item.href))
       ?.label ?? "Workspace";
@@ -118,7 +118,7 @@ function Header({ showNavigation = true }: { showNavigation?: boolean }) {
 
 export function ApplicationShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const isProblemDetail = /^\/problems\/[^/]+$/.test(pathname);
+  const isProblemDetail = pathname.startsWith("/problems/") && pathname !== "/problems";
   const shellClass = isProblemDetail
     ? "flex h-dvh min-h-0 overflow-hidden bg-surface text-foreground max-lg:h-auto max-lg:min-h-dvh max-lg:overflow-visible"
     : "flex min-h-screen bg-surface text-foreground";
