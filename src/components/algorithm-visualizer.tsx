@@ -12,10 +12,12 @@ import { executeQuickSort, quickSortPartitionKey } from "@/lib/algorithms/quick-
 import type { QuickSortCustomPivots, QuickSortPivotStrategy } from "@/lib/algorithms/quick-sort";
 import { executeHeapSort } from "@/lib/algorithms/heap-sort";
 import { executeCountingSort } from "@/lib/algorithms/counting-sort";
+import { executeRadixSort } from "@/lib/algorithms/radix-sort";
 import type { AlgorithmExecutionStep } from "@/lib/algorithms/execution";
 import type { QuickSortStep } from "@/lib/algorithms/execution";
 import type { HeapSortStep } from "@/lib/algorithms/execution";
 import type { CountingSortStep } from "@/lib/algorithms/execution";
+import type { RadixSortStep } from "@/lib/algorithms/execution";
 import type { PseudocodeLine } from "@/lib/algorithms/execution";
 import { algorithmSourceCode, quickSortSourceCode, codeLanguages, type CodeLanguage } from "@/lib/algorithms/source-code";
 
@@ -31,7 +33,7 @@ const PIVOT_STRATEGY_LABELS: Record<QuickSortPivotStrategy, string> = {
   custom: "Custom element",
 };
 
-export type SortingAlgorithm = "bubble" | "selection" | "insertion" | "merge" | "quick" | "heap" | "counting" | "linear" | "binary";
+export type SortingAlgorithm = "bubble" | "selection" | "insertion" | "merge" | "quick" | "heap" | "counting" | "radix" | "linear" | "binary";
 
 function describeStep(
   step: AlgorithmExecutionStep | undefined,
@@ -45,6 +47,7 @@ function describeStep(
     if (algorithm === "selection") return "Ready to find the minimum value.";
     if (algorithm === "heap") return "Ready to build a max heap from the array.";
     if (algorithm === "counting") return "Ready to count each value, then build the sorted output.";
+    if (algorithm === "radix") return "Ready to split signed integers and sort each group by decimal digits.";
     return "Ready to insert each value into the sorted prefix.";
   }
 
@@ -107,6 +110,11 @@ function describeStep(
   if (step.type === "counting-counted") return "Frequency counting is complete; each bucket records how often its value appears.";
   if (step.type === "counting-output-start") return "Write values in ascending bucket order, repeating each by its frequency.";
   if (step.type === "counting-output-place") return `Write ${step.outputValue} into output index ${step.outputIndex} using bucket ${step.bucketIndex}.`;
+  if (step.type === "radix-split") return "Separate negative magnitudes from non-negative values before digit passes.";
+  if (step.type === "radix-pass") return `Start the ${step.digitPlace === 1 ? "ones" : step.digitPlace === 10 ? "tens" : "hundreds"} place pass for ${step.sign} magnitudes.`;
+  if (step.type === "radix-distribute") return `Value ${step.activeMagnitude! * (step.sign === "negative" ? -1 : 1)} has active digit ${step.activeDigit}; append its magnitude to bucket ${step.bucketIndex}.`;
+  if (step.type === "radix-collect") return `Collect ${step.output[step.collectionIndex!]} from bucket ${step.bucketIndex} into the pass output.`;
+  if (step.type === "radix-combine") return "Reverse the sorted negative magnitudes, then append sorted non-negative values.";
 
   return `Sorting complete. All ${count} values are in order. Reset to run it again.`;
 }
@@ -369,6 +377,29 @@ function HeapTree({ values, step }: { values: readonly number[]; step: Algorithm
   );
 }
 
+function RadixSortPanel({ input, step }: { input: readonly number[]; step?: RadixSortStep }) {
+  const buckets = step?.buckets ?? Array.from({ length: 10 }, () => [] as number[]);
+  const activeValue = step?.activeMagnitude === undefined ? undefined : step.sign === "negative" ? -step.activeMagnitude : step.activeMagnitude;
+  const placeName = step?.digitPlace === 1 ? "Ones" : step?.digitPlace === 10 ? "Tens" : step?.digitPlace === 100 ? "Hundreds" : `${step?.digitPlace ?? 1}s`;
+  return (
+    <section aria-label="Radix sort digit buckets" className="mt-5 border border-line bg-surface p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
+        <span>Original input: <span className="font-mono text-foreground">{(step?.originalInput ?? input).join(", ")}</span></span>
+        {step ? <span className="font-medium text-accent">{placeName} place · {step.sign} magnitudes · {step.phase}</span> : <span>10 stable digit buckets</span>}
+      </div>
+      {step?.activeDigit !== undefined ? <p className="mb-3 text-xs text-muted">Active value <b className="font-mono text-amber-300">{activeValue}</b> · digit <b className="font-mono text-amber-300">{step.activeDigit}</b> · bucket <b className="font-mono text-accent">{step.bucketIndex}</b></p> : null}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+        {buckets.map((bucket, index) => <div className={`min-h-16 border p-2 ${step?.bucketIndex === index ? step.phase === "collect" ? "border-emerald-400 bg-emerald-400/10" : "border-accent bg-accent/10" : "border-line"}`} key={index}>
+          <div className="mb-1 font-mono text-[10px] text-muted">Bucket {index}</div>
+          <div className="flex min-h-6 flex-wrap gap-1">{bucket.map((value, itemIndex) => <span className={`border px-1.5 py-0.5 font-mono text-xs ${step?.phase === "collect" && step.bucketIndex === index ? "border-emerald-400/60 text-emerald-200" : "border-line-strong text-foreground"}`} key={`${itemIndex}-${value}`}>{value}</span>)}</div>
+        </div>)}
+      </div>
+      {step?.phase === "collect" ? <p className="mt-3 text-xs text-muted">Pass output: <span className="font-mono text-foreground">{step.output.join(", ")}</span></p> : null}
+      {step?.type === "radix-combine" ? <p className="mt-3 text-xs text-emerald-300">Sorted output: <span className="font-mono">{step.array.join(", ")}</span></p> : null}
+    </section>
+  );
+}
+
 function CountingSortPanel({ values, step }: { values: readonly number[]; step: CountingSortStep | undefined }) {
   const minimum = step?.minimum ?? Math.min(...values);
   const distinctValues = [...new Set(values)].sort((left, right) => left - right);
@@ -513,6 +544,8 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
           ? executeHeapSort(input)
         : algorithm === "counting"
           ? executeCountingSort(input)
+        : algorithm === "radix"
+          ? executeRadixSort(input)
         : algorithm === "merge"
           ? executeMergeSort(input)
         : algorithm === "bubble"
@@ -555,6 +588,7 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
     : complete && steps.length > 1 && "counts" in steps[steps.length - 2]
       ? steps[steps.length - 2] as CountingSortStep
       : undefined;
+  const radixSnapshot = currentStep && "buckets" in currentStep ? currentStep as RadixSortStep : undefined;
   const values = currentStep?.array ?? input;
   const progress = steps.length === 0 ? 0 : (stepCount / steps.length) * 100;
 
@@ -590,7 +624,7 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
 
   function applyInput() {
     try {
-      reset(parseArrayInput(inputText, algorithm === "merge" || algorithm === "quick" || algorithm === "heap" || algorithm === "counting"), true);
+      reset(parseArrayInput(inputText, algorithm === "merge" || algorithm === "quick" || algorithm === "heap" || algorithm === "counting" || algorithm === "radix"), true);
     } catch (error) {
       setInputError(
         error instanceof Error ? error.message : "Invalid array input.",
@@ -836,6 +870,7 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
         />
         {algorithm === "heap" ? <HeapTree values={values} step={currentStep} /> : null}
         {algorithm === "counting" ? <CountingSortPanel values={input} step={countingSnapshot} /> : null}
+        {algorithm === "radix" ? <RadixSortPanel step={radixSnapshot} input={input} /> : null}
 
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
           <p aria-live="polite" className="min-h-5 text-sm text-muted">

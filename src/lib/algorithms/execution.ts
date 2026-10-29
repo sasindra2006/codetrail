@@ -7,7 +7,8 @@ export type PseudocodeLineId =
   | "merge.header" | "merge.base" | "merge.split" | "merge.initialize" | "merge.compare" | "merge.place" | "merge.complete" | "merge.return"
   | "quick.header" | "quick.base" | "quick.partition" | "quick.pivot-select" | "quick.pivot-move" | "quick.pivot" | "quick.boundary" | "quick.compare" | "quick.swap" | "quick.pivot-place" | "quick.recurse-left" | "quick.recurse-right" | "quick.return"
   | "heap.header" | "heap.build" | "heap.build-done" | "heap.sift" | "heap.left" | "heap.right" | "heap.swap" | "heap.sift-done" | "heap.extract" | "heap.extract-swap" | "heap.complete" | "heap.return"
-  | "counting.header" | "counting.range" | "counting.initialize" | "counting.scan" | "counting.increment" | "counting.output-start" | "counting.emit" | "counting.return";
+  | "counting.header" | "counting.range" | "counting.initialize" | "counting.scan" | "counting.increment" | "counting.output-start" | "counting.emit" | "counting.return"
+  | "radix.header" | "radix.split" | "radix.pass" | "radix.distribute" | "radix.collect" | "radix.combine" | "radix.return";
 
 export type PseudocodeLine = { id: PseudocodeLineId; text: string };
 
@@ -34,6 +35,7 @@ export type AlgorithmExecutionStep =
   | QuickSortStep
   | HeapSortStep
   | CountingSortStep
+  | RadixSortStep
   | CompleteStep;
 
 export type ComparisonStep = StepSnapshot & {
@@ -130,6 +132,23 @@ export type CountingSortStep = StepSnapshot & {
   bucketIndex?: number;
   outputIndex?: number;
   outputValue?: number;
+};
+
+export type RadixSortStep = StepSnapshot & {
+  type: "radix-split" | "radix-pass" | "radix-distribute" | "radix-collect" | "radix-combine";
+  phase: "split" | "distribute" | "collect" | "combine";
+  sign: "negative" | "non-negative";
+  digitPlace: number;
+  activeIndex?: number;
+  activeDigit?: number;
+  activeMagnitude?: number;
+  bucketIndex?: number;
+  buckets: readonly (readonly number[])[];
+  /** Values accumulated in the current pass; populated only during collection. */
+  output: readonly number[];
+  distributionIndex?: number;
+  collectionIndex?: number;
+  originalInput: readonly number[];
 };
 
 export type CompleteStep = StepSnapshot & { type: "complete" };

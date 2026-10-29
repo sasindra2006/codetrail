@@ -16,7 +16,7 @@ export type AlgorithmInfo = {
   explanation: string;
   pseudocode: readonly PseudocodeLine[];
   properties: string;
-  visualizer: "bubble" | "selection" | "insertion" | "merge" | "quick" | "heap" | "counting" | "linear" | "binary";
+  visualizer: "bubble" | "selection" | "insertion" | "merge" | "quick" | "heap" | "counting" | "radix" | "linear" | "binary";
 };
 
 export const algorithms: AlgorithmInfo[] = [
@@ -97,6 +97,23 @@ export const algorithms: AlgorithmInfo[] = [
       { id: "counting.return", text: "    return output" },
     ],
     properties: "Non-comparison | Range-based", visualizer: "counting",
+  },
+  {
+    slug: "radix-sort", name: "Radix Sort", category: "Sorting",
+    description: "Sort integers with stable least-significant-digit passes through buckets 0–9.",
+    keywords: ["LSD", "digits", "stable", "negative values", "non-comparison", "sorting"],
+    timeComplexity: "O(d(n + b))", bestCase: "O(d(n + b))", averageCase: "O(d(n + b))", worstCase: "O(d(n + b))", spaceComplexity: "O(n + b)",
+    explanation: "This LSD Radix Sort separates negative and non-negative integers. It stably sorts each group by absolute magnitude from ones place upward, then reverses the sorted negative magnitudes and places them before the non-negative values. This correctly orders negatives without negating the minimum signed integer in fixed-width language implementations (magnitude is widened first). For n values, d decimal digits, and b = 10 buckets, time is O(d(n + b)); buckets and pass output use O(n + b) auxiliary space.",
+    pseudocode: [
+      { id: "radix.header", text: "RADIX-SORT(A):" },
+      { id: "radix.split", text: "    negatives = abs(values < 0); nonNegatives = values >= 0" },
+      { id: "radix.pass", text: "    for each group, for place = 1; place <= maxMagnitude; place *= 10:" },
+      { id: "radix.distribute", text: "        stably append each magnitude to bucket[(magnitude / place) % 10]" },
+      { id: "radix.collect", text: "        concatenate buckets 0 through 9 into the group" },
+      { id: "radix.combine", text: "    A = reverse(sorted negative magnitudes) + sorted nonNegatives" },
+      { id: "radix.return", text: "    return A" },
+    ],
+    properties: "Stable | Non-comparison", visualizer: "radix",
   },
   {
     slug: "heap-sort", name: "Heap Sort", category: "Sorting",
