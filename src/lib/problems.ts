@@ -31,6 +31,32 @@ export type ExternalProblem = {
 
 export type WorkspaceProblem = InternalProblem | ExternalProblem;
 
+export type ProblemListingItem = {
+  key: string;
+  source: "internal" | "codeforces";
+  title: string;
+  href: string;
+  difficulty: string | null;
+  rating: number | null;
+  topics: string[];
+  problemId: string | null;
+  solvedCount: number | null;
+};
+
+export function toInternalProblemListing(problem: InternalProblem): ProblemListingItem {
+  return {
+    key: `internal:${problem.slug}`,
+    source: "internal",
+    title: problem.title,
+    href: `/problems/${encodeURIComponent(problem.slug)}`,
+    difficulty: problem.difficulty,
+    rating: null,
+    topics: problem.topics,
+    problemId: null,
+    solvedCount: null,
+  };
+}
+
 export function isExternalProblem(
   problem: WorkspaceProblem
 ): problem is ExternalProblem {
