@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { LearningAnalyticsSnapshot } from "@/lib/analytics";
+import { requireSession } from "@/lib/auth-server";
 
 // Progress data is not persisted yet. Keep the page ready for a real snapshot
 // and show honest empty states until an account/activity source is connected.
@@ -63,7 +64,8 @@ function AnalyticsPanels({ data }: { data: LearningAnalyticsSnapshot }) {
   );
 }
 
-export default function AnalyticsPage() {
+export default async function AnalyticsPage() {
+  await requireSession();
   return (
     <section className="mx-auto flex w-full max-w-6xl flex-col gap-8">
       <header className="border-b border-line pb-7">

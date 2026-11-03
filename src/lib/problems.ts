@@ -5,6 +5,25 @@ export type SampleCase = {
   explanation?: string;
 };
 
+export type SupportedLanguage = "cpp17" | "python3";
+export type ExecutionMode = "stdio" | "function";
+export type FunctionSignature = {
+  name: string;
+  parameters: Array<{ name: string; type: string }>;
+  returns: string;
+};
+export type FunctionTestInput =
+  | { kind: "two-sum"; nums: number[]; target: number }
+  | { kind: "number-array"; nums: number[] }
+  | { kind: "string"; value: string };
+export type FunctionExpectedOutput = number[] | number | string | boolean;
+export type FunctionTestCase = {
+  name: string;
+  input: FunctionTestInput;
+  expectedOutput: FunctionExpectedOutput;
+  publicExampleIndex?: number;
+};
+
 export type ProblemContentBlock =
   | { type: "paragraph"; text: string }
   | { type: "code"; code: string; language?: string }
@@ -28,6 +47,10 @@ export type InternalProblem = {
   samples: SampleCase[];
   explanation: string;
   starterCode: string;
+  executionMode?: ExecutionMode;
+  supportedLanguages?: SupportedLanguage[];
+  languageStarters?: Partial<Record<SupportedLanguage, string>>;
+  functionSignature?: FunctionSignature;
 };
 
 export type ExternalProblem = {
@@ -76,34 +99,88 @@ export function isExternalProblem(
   return problem.kind === "codeforces";
 }
 
+const twoSumCppStarter = `class Solution {
+public:
+    vector<int> twoSum(vector<int>& nums, int target) {
+        // Your code here
+    }
+};`;
+
+const twoSumPythonStarter = `class Solution:
+    def twoSum(self, nums: list[int], target: int) -> list[int]:
+        # Your code here
+        pass`;
+
+const maxSubarrayCppStarter = `class Solution {
+public:
+    int maxSubArray(vector<int>& nums) {
+        // Your code here
+    }
+};`;
+
+const maxSubarrayPythonStarter = `class Solution:
+    def maxSubArray(self, nums: list[int]) -> int:
+        # Your code here
+        pass`;
+
+const missingNumberCppStarter = `class Solution {
+public:
+    int missingNumber(vector<int>& nums) {
+        // Your code here
+    }
+};`;
+
+const missingNumberPythonStarter = `class Solution:
+    def missingNumber(self, nums: list[int]) -> int:
+        # Your code here
+        pass`;
+
+const reverseWordsCppStarter = `class Solution {
+public:
+    string reverseWords(string s) {
+        // Your code here
+    }
+};`;
+
+const reverseWordsPythonStarter = `class Solution:
+    def reverseWords(self, s: str) -> str:
+        # Your code here
+        pass`;
+
+const palindromeCppStarter = `class Solution {
+public:
+    bool isPalindrome(string s) {
+        // Your code here
+    }
+};`;
+
+const palindromePythonStarter = `class Solution:
+    def isPalindrome(self, s: str) -> bool:
+        # Your code here
+        pass`;
+
 export const internalProblems: InternalProblem[] = [
   {
     slug: "two-sum",
     title: "Two Sum",
     difficulty: "Easy",
     topics: ["Arrays", "Hashing"],
-    statement: "Given an array of integers and a target, find two different positions whose values add up to the target. Print the two positions using 1-based indexing. Exactly one pair exists.",
+    statement: "Given an array of integers and a target, return the indices of two different values that add up to the target. Return zero-based indices. Exactly one pair exists.",
     constraints: ["2 ≤ n ≤ 100,000", "−1,000,000,000 ≤ values[i], target ≤ 1,000,000,000", "Exactly one valid pair exists."],
     samples: [
-      { name: "Example 1", input: "4\n2 7 11 15\n9\n", expectedOutput: "1 2\n" },
-      { name: "Example 2", input: "5\n3 2 4 1 6\n10\n", expectedOutput: "3 5\n" },
+      { name: "Example 1", input: "nums = [2, 7, 11, 15], target = 9", expectedOutput: "[0, 1]" },
+      { name: "Example 2", input: "nums = [3, 2, 4, 1, 6], target = 10", expectedOutput: "[2, 4]" },
     ],
-    explanation: "In the first example, the values at positions 1 and 2 sum to 9. In the second, 4 and 6 are at positions 3 and 5.",
-    starterCode: `#include <iostream>
-#include <vector>
-using namespace std;
-
-int main() {
-    int n;
-    cin >> n;
-    vector<long long> values(n);
-    for (auto& value : values) cin >> value;
-    long long target;
-    cin >> target;
-
-    // Find and print the two 1-based positions.
-    return 0;
-}`,
+    explanation: "In the first example, the values at indices 0 and 1 sum to 9. In the second, the values at indices 2 and 4 sum to 10.",
+    starterCode: twoSumCppStarter,
+    executionMode: "function",
+    supportedLanguages: ["cpp17", "python3"],
+    languageStarters: { cpp17: twoSumCppStarter, python3: twoSumPythonStarter },
+    functionSignature: {
+      name: "twoSum",
+      parameters: [{ name: "nums", type: "int[]" }, { name: "target", type: "int" }],
+      returns: "int[]",
+    },
   },
   {
     slug: "maximum-subarray-sum",
@@ -117,19 +194,15 @@ int main() {
       { name: "Example 2", input: "4\n-7 -2 -5 -3\n", expectedOutput: "-2\n" },
     ],
     explanation: "The subarray [4, -1, 2, 1] has sum 6 in the first example. When all values are negative, the best non-empty subarray contains the largest value, -2.",
-    starterCode: `#include <iostream>
-#include <vector>
-using namespace std;
-
-int main() {
-    int n;
-    cin >> n;
-    vector<long long> values(n);
-    for (auto& value : values) cin >> value;
-
-    // Compute and print the largest contiguous subarray sum.
-    return 0;
-}`,
+    starterCode: maxSubarrayCppStarter,
+    executionMode: "function",
+    supportedLanguages: ["cpp17", "python3"],
+    languageStarters: { cpp17: maxSubarrayCppStarter, python3: maxSubarrayPythonStarter },
+    functionSignature: {
+      name: "maxSubArray",
+      parameters: [{ name: "nums", type: "int[]" }],
+      returns: "int",
+    },
   },
   {
     slug: "missing-number",
@@ -143,19 +216,15 @@ int main() {
       { name: "Example 2", input: "5\n0 1 2 3 5\n", expectedOutput: "4\n" },
     ],
     explanation: "The complete range is 0 through n. The first input omits 2; the second omits 4.",
-    starterCode: `#include <iostream>
-#include <vector>
-using namespace std;
-
-int main() {
-    int n;
-    cin >> n;
-    vector<int> values(n);
-    for (int& value : values) cin >> value;
-
-    // Find and print the absent value from 0 through n.
-    return 0;
-}`,
+    starterCode: missingNumberCppStarter,
+    executionMode: "function",
+    supportedLanguages: ["cpp17", "python3"],
+    languageStarters: { cpp17: missingNumberCppStarter, python3: missingNumberPythonStarter },
+    functionSignature: {
+      name: "missingNumber",
+      parameters: [{ name: "nums", type: "int[]" }],
+      returns: "int",
+    },
   },
   {
     slug: "reverse-words",
@@ -169,17 +238,15 @@ int main() {
       { name: "Example 2", input: "  code   every day  \n", expectedOutput: "day every code\n" },
     ],
     explanation: "Split the line into its words, then emit them from last to first with a single space between neighbors.",
-    starterCode: `#include <iostream>
-#include <string>
-using namespace std;
-
-int main() {
-    string line;
-    getline(cin, line);
-
-    // Print the words in reverse order, separated by one space.
-    return 0;
-}`,
+    starterCode: reverseWordsCppStarter,
+    executionMode: "function",
+    supportedLanguages: ["cpp17", "python3"],
+    languageStarters: { cpp17: reverseWordsCppStarter, python3: reverseWordsPythonStarter },
+    functionSignature: {
+      name: "reverseWords",
+      parameters: [{ name: "s", type: "string" }],
+      returns: "string",
+    },
   },
   {
     slug: "valid-palindrome",
@@ -193,17 +260,15 @@ int main() {
       { name: "Example 2", input: "CodeTrail\n", expectedOutput: "NO\n" },
     ],
     explanation: "After filtering and case folding, the first line reads the same from both directions. The second does not.",
-    starterCode: `#include <iostream>
-#include <string>
-using namespace std;
-
-int main() {
-    string line;
-    getline(cin, line);
-
-    // Print YES if the cleaned line is a palindrome, otherwise NO.
-    return 0;
-}`,
+    starterCode: palindromeCppStarter,
+    executionMode: "function",
+    supportedLanguages: ["cpp17", "python3"],
+    languageStarters: { cpp17: palindromeCppStarter, python3: palindromePythonStarter },
+    functionSignature: {
+      name: "isPalindrome",
+      parameters: [{ name: "s", type: "string" }],
+      returns: "bool",
+    },
   },
 ];
 

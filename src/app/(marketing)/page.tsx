@@ -39,10 +39,11 @@ export default function LandingPage() {
           <ThemeToggle />
           <Link
             className="border border-line px-3 py-2 text-sm font-medium text-muted transition-colors hover:border-line-strong hover:bg-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70"
-            href="/dashboard"
+            href="/login"
           >
-            Open workspace
+            Sign in
           </Link>
+          <Link className="border border-accent bg-accent px-3 py-2 text-sm font-semibold text-accent-foreground transition-opacity hover:opacity-90" href="/register">Create account</Link>
         </div>
       </header>
 
@@ -62,9 +63,9 @@ export default function LandingPage() {
           <div className="mt-9 flex flex-wrap gap-3">
             <Link
               className="border border-accent bg-accent px-5 py-3 text-sm font-semibold text-accent-foreground transition-[filter] hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
-              href="/dashboard"
+              href="/register"
             >
-              Start learning
+              Create your account
             </Link>
             <a
               className="border border-line px-5 py-3 text-sm font-semibold text-foreground transition-colors hover:border-line-strong hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70"

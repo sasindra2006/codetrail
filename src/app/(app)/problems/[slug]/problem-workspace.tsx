@@ -21,6 +21,7 @@ import {
 } from "dockview-react";
 import {
   isExternalProblem,
+  type SupportedLanguage,
   type WorkspaceProblem,
 } from "@/lib/problems";
 import { ProblemExamples, ProblemStatement } from "./problem-statement";
@@ -48,26 +49,43 @@ type SampleVerdict =
   | "time_limit_exceeded"
   | "service_error";
 type SampleResult = {
-  name: string;
-  expectedOutput: string;
-  actualOutput: string;
+  caseNumber?: number;
+  name?: string;
+  input?: string;
+  expectedOutput?: string;
+  actualOutput?: string;
   passed: boolean;
-  error: string | null;
+  error?: string | null;
   verdict?: SampleVerdict;
 };
 type RunResponse = { results?: SampleResult[]; error?: string };
+type SubmissionResponse = {
+  verdict?: "accepted" | "wrong_answer" | "time_limit_exceeded" | "runtime_error" | "compilation_error" | "internal_judge_error";
+  passedCount?: number;
+  totalCount?: number;
+  message?: string;
+  historySaved?: boolean;
+  error?: string;
+};
+type SubmissionResult = Required<Pick<SubmissionResponse, "verdict" | "passedCount" | "totalCount" | "message">> & { historySaved: boolean };
 
 type WorkspaceContextType = {
   problem: WorkspaceProblem;
+  language: SupportedLanguage;
+  setLanguage: (language: SupportedLanguage) => void;
   sourceCode: string;
   setSourceCode: (code: string) => void;
   editorTheme: "vs-dark" | "vs";
   running: boolean;
+  submitting: boolean;
   runError: string | null;
+  submissionError: string | null;
+  submission: SubmissionResult | null;
   results: SampleResult[] | null;
   selectedSample: number;
   setSelectedSample: (index: number) => void;
   runSamples: () => Promise<void>;
+  submitSolution: () => Promise<void>;
   resetLayout: () => void;
   editorRef: React.RefObject<MonacoEditor.IStandaloneCodeEditor | null>;
   monacoRef: React.RefObject<typeof import("monaco-editor") | null>;
@@ -81,6 +99,11 @@ function useWorkspace() {
     throw new Error("useWorkspace must be used within a WorkspaceContext.Provider");
   }
   return context;
+}
+
+function starterCodeFor(problem: WorkspaceProblem, language: SupportedLanguage) {
+  if (isExternalProblem(problem)) return problem.starterCode;
+  return problem.languageStarters?.[language] ?? problem.starterCode;
 }
 
 function WorkspaceTab(props: IDockviewPanelHeaderProps) {
@@ -245,22 +268,44 @@ function DescriptionPanel() {
 function EditorPanel() {
   const {
     problem,
+    language,
+    setLanguage,
     sourceCode,
     setSourceCode,
     running,
+    submitting,
     runSamples,
+    submitSolution,
     editorTheme,
     editorRef,
     monacoRef,
   } = useWorkspace();
   const isExternal = isExternalProblem(problem);
+  const supportsPython = !isExternal
+    && problem.executionMode === "function"
+    && problem.supportedLanguages?.includes("python3");
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col">
       <div className="flex min-h-11 shrink-0 items-center justify-between gap-3 border-b border-line px-3">
-        <span aria-label="Selected language: C++17" className="inline-flex h-7 items-center border border-line px-2 font-mono text-[11px] font-medium text-muted">
-          C++17
-        </span>
+        {supportsPython ? (
+          <label className="inline-flex h-7 items-center border border-line px-2 font-mono text-[11px] font-medium text-muted">
+            <span className="sr-only">Programming language</span>
+            <select
+              aria-label="Programming language"
+              className="bg-transparent outline-none"
+              onChange={(event) => setLanguage(event.target.value as SupportedLanguage)}
+              value={language}
+            >
+              <option className="bg-panel" value="cpp17">C++17</option>
+              <option className="bg-panel" value="python3">Python 3</option>
+            </select>
+          </label>
+        ) : (
+          <span aria-label="Selected language: C++17" className="inline-flex h-7 items-center border border-line px-2 font-mono text-[11px] font-medium text-muted">
+            C++17
+          </span>
+        )}
         {isExternal ? (
           <button
             aria-disabled="true"
@@ -272,22 +317,35 @@ function EditorPanel() {
             Samples unavailable
           </button>
         ) : (
+          <>
           <button
-            aria-busy={running}
-            className="inline-flex h-8 shrink-0 items-center gap-2 bg-accent px-3 text-xs font-semibold text-accent-foreground outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-wait disabled:opacity-60"
-            disabled={running}
+            aria-busy={running || submitting}
+            className="inline-flex h-8 shrink-0 items-center gap-2 border border-line px-3 text-xs font-semibold text-foreground outline-none transition-colors hover:bg-hover focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-wait disabled:opacity-60"
+            disabled={running || submitting}
             onClick={runSamples}
             type="button"
           >
-            {running ? "Running…" : "Run samples"}
+            {running ? "Running…" : "Run Samples"}
           </button>
+          {!isExternal && problem.executionMode === "function" && (
+            <button
+              aria-busy={submitting || running}
+              className="inline-flex h-8 shrink-0 items-center gap-2 bg-accent px-3 text-xs font-semibold text-accent-foreground outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-wait disabled:opacity-60"
+              disabled={running || submitting}
+              onClick={submitSolution}
+              type="button"
+            >
+              {submitting ? "Submitting…" : "Submit"}
+            </button>
+          )}
+          </>
         )}
       </div>
       <div className="min-h-0 min-w-0 flex-1">
         <CodeEditor
-          aria-label="C++17 source code"
+          aria-label={`${language === "cpp17" ? "C++17" : "Python 3"} source code`}
           height="100%"
-          language="cpp"
+          language={language === "cpp17" ? "cpp" : "python"}
           onChange={(value) => setSourceCode(value ?? "")}
           onMount={(editor, monaco) => {
             editorRef.current = editor;
@@ -316,7 +374,7 @@ function EditorPanel() {
 }
 
 function ResultsPanel() {
-  const { problem, results, runError, running, selectedSample, setSelectedSample } = useWorkspace();
+  const { problem, results, runError, running, submitting, submission, submissionError, selectedSample, setSelectedSample } = useWorkspace();
   const isExternal = isExternalProblem(problem);
 
   if (isExternal) {
@@ -343,7 +401,7 @@ function ResultsPanel() {
   const verdictLabel = (result: SampleResult) => {
     const verdict = result.verdict ?? (result.passed ? "accepted" : "wrong_answer");
     return {
-      accepted: "Accepted",
+      accepted: "Sample Passed",
       wrong_answer: "Wrong Answer",
       compilation_error: "Compilation Error",
       runtime_error: "Runtime Error",
@@ -356,6 +414,49 @@ function ResultsPanel() {
     : result.verdict === "service_error"
       ? "text-muted"
       : "text-amber-500";
+
+  if (submitting || submission || submissionError) {
+    const labels = {
+      accepted: "Accepted",
+      wrong_answer: "Wrong Answer",
+      time_limit_exceeded: "Time Limit Exceeded",
+      runtime_error: "Runtime Error",
+      compilation_error: "Compilation Error",
+      internal_judge_error: "Internal Judge Error",
+    };
+    return (
+      <div className="flex h-full min-h-0 flex-col">
+        <div className="flex min-h-11 shrink-0 items-center justify-between border-b border-line px-4">
+          <span className="text-xs font-medium text-foreground">Submission Result</span>
+          <span className="border border-line px-1.5 py-0.5 text-[11px] text-muted">Full test suite</span>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5">
+          {submitting ? (
+            <div role="status" aria-live="polite">
+              <p className="text-sm font-medium text-foreground">Judging submission…</p>
+              <p className="mt-1 text-xs leading-5 text-muted">Running the complete server-side test suite.</p>
+            </div>
+          ) : submissionError ? (
+            <div className="text-sm text-amber-500" role="alert">
+              <p>{submissionError}</p>
+              {submissionError.toLowerCase().includes("sign in") && (
+                <Link className="mt-2 inline-block font-medium text-accent hover:underline" href="/login">Log in to submit</Link>
+              )}
+            </div>
+          ) : submission ? (
+            <div role="status" aria-live="polite">
+              <p className={`text-lg font-semibold ${submission.verdict === "accepted" ? "text-emerald-500" : submission.verdict === "internal_judge_error" ? "text-muted" : "text-amber-500"}`}>
+                {labels[submission.verdict]}
+              </p>
+              <p className="mt-1 text-sm text-foreground">{submission.passedCount} / {submission.totalCount} tests passed</p>
+              <p className="mt-3 text-xs leading-5 text-muted">{submission.message}</p>
+              {!submission.historySaved && <p className="mt-2 text-xs text-amber-500">This result could not be saved to submission history.</p>}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -404,15 +505,24 @@ function ResultsPanel() {
                   role="tab"
                   type="button"
                 >
-                  {result.name}
-                  <span className={`ml-2 ${verdictColor(result)}`}>
-                    {verdictLabel(result)}
+                  {result.name ?? `Case ${result.caseNumber ?? index + 1}`}
+                  <span className={`ml-2 ${result.input === undefined ? (result.passed ? "text-emerald-500" : "text-amber-500") : verdictColor(result)}`}>
+                    {result.input === undefined ? (result.passed ? "Passed" : "Failed") : verdictLabel(result)}
                   </span>
                 </button>
               ))}
             </div>
             {activeResult && (
-              <div
+              activeResult.input === undefined ? (
+                <div
+                  aria-labelledby={`sample-tab-${selectedSample}`}
+                  className="m-4 border border-line bg-surface px-3 py-3 text-sm"
+                  id="sample-result-panel"
+                  role="tabpanel"
+                >
+                  Case {activeResult.caseNumber ?? selectedSample + 1}: {activeResult.passed ? "Passed" : "Failed"}
+                </div>
+              ) : <div
                 aria-labelledby={`sample-tab-${selectedSample}`}
                 className="grid min-w-0 gap-3 p-4 sm:grid-cols-2"
                 id="sample-result-panel"
@@ -433,11 +543,15 @@ function ResultsPanel() {
                   </div>
                 )}
                 <div className="min-w-0">
+                  <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted">Input</p>
+                  <pre className="min-h-12 max-w-full overflow-auto border border-line bg-surface p-2.5 font-mono text-xs leading-5">{activeResult.input}</pre>
+                </div>
+                <div className="min-w-0">
                   <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted">
-                    Expected output
+                    {activeResult.expectedOutput === undefined ? "Expected output (hidden)" : "Expected output"}
                   </p>
                   <pre className="min-h-12 max-w-full overflow-auto border border-line bg-surface p-2.5 font-mono text-xs leading-5">
-                    {activeResult.expectedOutput}
+                    {activeResult.expectedOutput ?? "Hidden for function-based sample runs."}
                   </pre>
                 </div>
                 <div className="min-w-0">
@@ -445,7 +559,9 @@ function ResultsPanel() {
                     Your output
                   </p>
                   <pre className="min-h-12 max-w-full overflow-auto border border-line bg-surface p-2.5 font-mono text-xs leading-5">
-                    {activeResult.actualOutput === "" ? <span className="text-muted">(no output)</span> : activeResult.actualOutput}
+                    {!activeResult.actualOutput
+                      ? <span className="text-muted">(no output)</span>
+                      : activeResult.actualOutput}
                   </pre>
                 </div>
               </div>
@@ -460,7 +576,9 @@ function ResultsPanel() {
           <div className="px-4 py-5">
             <p className="text-sm text-muted">Run your code to see how it handles the sample cases.</p>
             <p className="mt-1 text-xs leading-5 text-muted">
-              Only the examples shown in this problem are sent for execution.
+              {!isExternalProblem(problem) && problem.executionMode === "function"
+                ? "The sample run checks the displayed examples plus additional cases; it is not a full judge."
+                : "Only the examples shown in this problem are sent for execution."}
             </p>
           </div>
         )}
@@ -476,14 +594,26 @@ const panelComponents: Record<PanelId, (props: IDockviewPanelProps) => React.Rea
 };
 
 export function ProblemWorkspace({ problem }: { problem: WorkspaceProblem }) {
-  const [sourceCode, setSourceCode] = useState(problem.starterCode);
+  const [language, setLanguage] = useState<SupportedLanguage>("cpp17");
+  const [codeByLanguage, setCodeByLanguage] = useState<Partial<Record<SupportedLanguage, string>>>(() => ({
+    cpp17: starterCodeFor(problem, "cpp17"),
+    python3: starterCodeFor(problem, "python3"),
+  }));
+  const sourceCode = codeByLanguage[language] ?? starterCodeFor(problem, language);
+  const setSourceCode = useCallback((code: string) => {
+    setCodeByLanguage((current) => ({ ...current, [language]: code }));
+  }, [language]);
   const [editorTheme, setEditorTheme] = useState<"vs-dark" | "vs">("vs-dark");
   const [running, setRunning] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const [submission, setSubmission] = useState<SubmissionResult | null>(null);
   const [results, setResults] = useState<SampleResult[] | null>(null);
   const [selectedSample, setSelectedSample] = useState(0);
   const [mobilePanel, setMobilePanel] = useState<PanelId>("problem");
   const apiRef = useRef<DockviewApi | null>(null);
+  const executionLockRef = useRef(false);
   const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<typeof import("monaco-editor") | null>(null);
 
@@ -503,16 +633,19 @@ export function ProblemWorkspace({ problem }: { problem: WorkspaceProblem }) {
   }, []);
 
   const runSamples = useCallback(async () => {
-    if (isExternalProblem(problem)) return;
+    if (isExternalProblem(problem) || executionLockRef.current || submitting || running) return;
+    executionLockRef.current = true;
     setRunning(true);
     setRunError(null);
+    setSubmission(null);
+    setSubmissionError(null);
     setResults(null);
     setSelectedSample(0);
     try {
       const response = await fetch("/api/run-samples", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slug: problem.slug, sourceCode }),
+        body: JSON.stringify({ slug: problem.slug, sourceCode, language }),
       });
       const payload = (await response.json()) as RunResponse;
       if (!response.ok) throw new Error(payload.error ?? "Sample execution failed.");
@@ -533,9 +666,53 @@ export function ProblemWorkspace({ problem }: { problem: WorkspaceProblem }) {
         apiRef.current?.getPanel("results")?.api.setActive();
       }
     } finally {
+      executionLockRef.current = false;
       setRunning(false);
     }
-  }, [problem, sourceCode]);
+  }, [language, problem, sourceCode, running, submitting]);
+
+  const submitSolution = useCallback(async () => {
+    if (isExternalProblem(problem) || executionLockRef.current || running || submitting || problem.executionMode !== "function") return;
+    executionLockRef.current = true;
+    setSubmitting(true);
+    setSubmission(null);
+    setSubmissionError(null);
+    setRunError(null);
+    try {
+      const response = await fetch(`/api/problems/${encodeURIComponent(problem.slug)}/submissions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sourceCode, language }),
+      });
+      const payload = (await response.json()) as SubmissionResponse;
+      if (!response.ok) throw new Error(payload.error ?? "Could not submit this solution.");
+      if (!payload.verdict || typeof payload.passedCount !== "number" || typeof payload.totalCount !== "number" || typeof payload.message !== "string") {
+        throw new Error("The judge returned an invalid submission result.");
+      }
+      setSubmission({
+        verdict: payload.verdict,
+        passedCount: payload.passedCount,
+        totalCount: payload.totalCount,
+        message: payload.message,
+        historySaved: payload.historySaved === true,
+      });
+      if (window.matchMedia("(max-width: 1023px)").matches) {
+        setMobilePanel("results");
+      } else {
+        apiRef.current?.getPanel("results")?.api.setActive();
+      }
+    } catch (reason) {
+      setSubmissionError(reason instanceof Error ? reason.message : "Could not submit this solution. Please try again.");
+      if (window.matchMedia("(max-width: 1023px)").matches) {
+        setMobilePanel("results");
+      } else {
+        apiRef.current?.getPanel("results")?.api.setActive();
+      }
+    } finally {
+      executionLockRef.current = false;
+      setSubmitting(false);
+    }
+  }, [language, problem, running, sourceCode, submitting]);
 
   const resetLayout = useCallback(() => {
     localStorage.removeItem(layoutStorageKey);
@@ -651,28 +828,41 @@ export function ProblemWorkspace({ problem }: { problem: WorkspaceProblem }) {
   const contextValue = useMemo(
     () => ({
       problem,
+      language,
+      setLanguage,
       sourceCode,
       setSourceCode,
       editorTheme,
       running,
+      submitting,
       runError,
+      submissionError,
+      submission,
       results,
       selectedSample,
       setSelectedSample,
       runSamples,
+      submitSolution,
       resetLayout,
       editorRef,
       monacoRef,
     }),
     [
       problem,
+      language,
+      setLanguage,
       sourceCode,
+      setSourceCode,
       editorTheme,
       running,
+      submitting,
       runError,
+      submissionError,
+      submission,
       results,
       selectedSample,
       runSamples,
+      submitSolution,
       resetLayout,
     ]
   );
