@@ -93,7 +93,7 @@ function Header({ showNavigation = true }: { showNavigation?: boolean }) {
   const isProblemDetail = pathname.startsWith("/problems/") && pathname !== "/problems";
   const currentSection =
     navigationItems.find((item) => isNavigationItemActive(pathname, item.href))
-      ?.label ?? "Workspace";
+      ?.label ?? (pathname === "/profile" ? "Profile" : pathname === "/settings" ? "Settings" : "Workspace");
 
   return (
     <>

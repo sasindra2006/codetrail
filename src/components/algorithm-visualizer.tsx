@@ -22,7 +22,6 @@ import type { PseudocodeLine } from "@/lib/algorithms/execution";
 import { algorithmSourceCode, quickSortSourceCode, codeLanguages, type CodeLanguage } from "@/lib/algorithms/source-code";
 
 const STARTING_ARRAY = [42, 17, 68, 9, 31, 54, 23];
-const STEP_INTERVAL_MS = 650;
 const MIN_ARRAY_SIZE = 5;
 const MAX_ARRAY_SIZE = 10;
 const PIVOT_STRATEGY_LABELS: Record<QuickSortPivotStrategy, string> = {
@@ -489,6 +488,7 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
   const [targetError, setTargetError] = useState<string | null>(null);
   const [stepCount, setStepCount] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [stepDelay, setStepDelay] = useState(650);
   const [pivotStrategy, setPivotStrategy] = useState<QuickSortPivotStrategy>("last");
   const [customPivots, setCustomPivots] = useState<QuickSortCustomPivots>({});
   const [quickSteps, setQuickSteps] = useState<AlgorithmExecutionStep[]>(() => algorithm === "quick" ? executeQuickSort(startingArray, "last") : []);
@@ -603,10 +603,10 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
       if (nextCount >= steps.length) {
         setPlaying(false);
       }
-    }, STEP_INTERVAL_MS);
+    }, stepDelay);
 
     return () => window.clearTimeout(timer);
-  }, [playing, stepCount, steps.length]);
+  }, [playing, stepCount, steps.length, stepDelay]);
 
   function reset(nextInput: readonly number[] = input, announceSorted = false) {
     const normalizedInput = algorithm === "binary" ? sortAscending(nextInput) : [...nextInput];
@@ -944,6 +944,20 @@ export function AlgorithmVisualizer({ algorithm = "bubble", pseudocode }: { algo
             Reset
           </ControlButton>
         </div>
+        <label className="mt-5 flex max-w-md flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted" htmlFor="visualizer-step-delay">
+          <span className="font-medium text-foreground">Step delay</span>
+          <input
+            className="h-2 min-w-32 flex-1 accent-[var(--accent)]"
+            id="visualizer-step-delay"
+            max={1500}
+            min={150}
+            onChange={(event) => setStepDelay(Number(event.target.value))}
+            step={50}
+            type="range"
+            value={stepDelay}
+          />
+          <output className="min-w-16 text-right font-mono tabular-nums" htmlFor="visualizer-step-delay">{stepDelay} ms</output>
+        </label>
       </div>
     </section>
     <section aria-labelledby="algorithm-code-heading" className="min-w-0 border border-line bg-panel">

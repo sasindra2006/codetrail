@@ -23,6 +23,7 @@ import {
   isExternalProblem,
   type WorkspaceProblem,
 } from "@/lib/problems";
+import { ProblemExamples, ProblemStatement } from "./problem-statement";
 
 const DockviewReact = dynamic(
   () => import("dockview-react").then((module) => module.DockviewReact),
@@ -31,7 +32,7 @@ const DockviewReact = dynamic(
 const CodeEditor = dynamic(() => import("@monaco-editor/react"), {
   ssr: false,
   loading: () => (
-    <div className="grid h-full place-items-center text-sm text-muted">
+    <div className="grid h-full place-items-center text-sm text-muted" role="status" aria-live="polite">
       Loading code editor…
     </div>
   ),
@@ -39,12 +40,20 @@ const CodeEditor = dynamic(() => import("@monaco-editor/react"), {
 
 const layoutStorageKey = "codetrail-problem-workspace-layout-v1";
 type PanelId = "problem" | "editor" | "results";
+type SampleVerdict =
+  | "accepted"
+  | "wrong_answer"
+  | "compilation_error"
+  | "runtime_error"
+  | "time_limit_exceeded"
+  | "service_error";
 type SampleResult = {
   name: string;
   expectedOutput: string;
   actualOutput: string;
   passed: boolean;
   error: string | null;
+  verdict?: SampleVerdict;
 };
 type RunResponse = { results?: SampleResult[]; error?: string };
 
@@ -128,7 +137,7 @@ function DescriptionPanel() {
           </div>
           <button
             aria-label="Reset workspace layout"
-            className="grid size-8 shrink-0 place-items-center border border-line bg-panel text-muted outline-none transition-colors hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-accent"
+            className="hidden size-8 shrink-0 place-items-center border border-line bg-panel text-muted outline-none transition-colors hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-accent lg:grid"
             onClick={resetLayout}
             title="Reset workspace layout"
             type="button"
@@ -153,31 +162,10 @@ function DescriptionPanel() {
       {isExternal ? (
         <div className="flex flex-col gap-6">
           <section className="border border-line bg-surface p-4">
-            <h3 className="text-sm font-semibold text-foreground">External Codeforces Problem</h3>
+            <h3 className="text-sm font-semibold text-foreground">Statement unavailable</h3>
             <p className="mt-2 text-xs leading-6 text-muted">
-              The Codeforces public API provides problem metadata but does not distribute problem statements, constraints, or sample tests. The full problem statement is hosted on the official Codeforces platform.
+              A statement and sample tests are not available in this workspace. Only catalog metadata was provided for this external problem, so no statement or examples are shown here.
             </p>
-            <div className="mt-4">
-              <a
-                className="inline-flex items-center gap-1.5 border border-line-strong bg-panel px-3.5 py-2 text-xs font-medium text-foreground outline-none transition-colors hover:bg-hover focus-visible:ring-2 focus-visible:ring-accent"
-                href={problem.externalUrl}
-                rel="noreferrer"
-                target="_blank"
-              >
-                View official problem on Codeforces
-                <svg
-                  aria-hidden="true"
-                  className="size-3.5"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  viewBox="0 0 24 24"
-                >
-                  <path d="M14 4h6v6m0-6-9 9" />
-                  <path d="M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6" />
-                </svg>
-              </a>
-            </div>
           </section>
 
           <section>
@@ -201,7 +189,7 @@ function DescriptionPanel() {
                 <div className="border border-line bg-surface p-3 col-span-2 sm:col-span-3">
                   <dt className="text-[11px] uppercase tracking-wide text-muted">Solved Count</dt>
                   <dd className="mt-1 font-medium text-foreground">
-                    {problem.solvedCount.toLocaleString()} accepted submissions on Codeforces
+                    {problem.solvedCount.toLocaleString()} accepted submissions on the source platform
                   </dd>
                 </div>
               )}
@@ -210,55 +198,44 @@ function DescriptionPanel() {
 
           <section>
             <h3 className="text-sm font-semibold">Workspace Notes</h3>
-            <p className="mt-2 text-xs leading-6 text-muted">
-              You can draft, structure, and edit your solution in C++17 using the Monaco code editor on the right. Sample execution and automatic submission for external catalog problems will be supported in upcoming milestones once test suites are integrated.
-            </p>
+              <p className="mt-2 text-xs leading-6 text-muted">You can draft a C++17 solution here. Sample execution is unavailable because no verified test cases are attached to this problem.</p>
           </section>
         </div>
       ) : (
         <div className="flex flex-col gap-6">
           <section>
             <h3 className="text-sm font-semibold">Description</h3>
-            <p className="mt-2 whitespace-pre-line text-sm leading-7 text-muted">
-              {problem.statement}
-            </p>
+            <div className="mt-2">
+              <ProblemStatement statement={problem.statement} sections={problem.sections} />
+            </div>
           </section>
-          <section>
-            <h3 className="text-sm font-semibold">Constraints</h3>
-            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm leading-6 text-muted">
-              {problem.constraints.map((constraint) => (
-                <li key={constraint}>{constraint}</li>
-              ))}
-            </ul>
-          </section>
+          {(!problem.sections || !problem.sections.some((section) => section.title === "Constraints")) && (
+            <section>
+              <h3 className="text-sm font-semibold">Constraints</h3>
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm leading-6 text-muted">
+                {problem.constraints.map((constraint, index) => (
+                  <li key={`${index}-${constraint}`}>{constraint}</li>
+                ))}
+              </ul>
+            </section>
+          )}
           <section>
             <h3 className="text-sm font-semibold">Examples</h3>
             <div className="mt-3 space-y-3">
-              {problem.samples.map((sample) => (
-                <div className="border border-line bg-surface p-3" key={sample.name}>
-                  <p className="mb-3 text-xs font-medium text-muted">{sample.name}</p>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div>
-                      <p className="mb-1 text-[11px] uppercase tracking-wide text-muted">Input</p>
-                      <pre className="overflow-x-auto whitespace-pre-wrap font-mono text-xs leading-5">
-                        {sample.input.trimEnd()}
-                      </pre>
-                    </div>
-                    <div>
-                      <p className="mb-1 text-[11px] uppercase tracking-wide text-muted">Output</p>
-                      <pre className="overflow-x-auto whitespace-pre-wrap font-mono text-xs leading-5">
-                        {sample.expectedOutput.trimEnd()}
-                      </pre>
-                    </div>
-                  </div>
-                </div>
-              ))}
+              <ProblemExamples samples={problem.samples} />
             </div>
           </section>
-          <section>
-            <h3 className="text-sm font-semibold">Explanation</h3>
-            <p className="mt-2 text-sm leading-6 text-muted">{problem.explanation}</p>
-          </section>
+          {problem.explanation && !problem.sections?.some((section) => section.title === "Explanation") && (
+            <section>
+              <h3 className="text-sm font-semibold">Explanation</h3>
+              <div className="mt-2">
+                <ProblemStatement statement={problem.explanation} />
+              </div>
+            </section>
+          )}
+          <footer className="border-t border-line pt-4 text-xs text-muted">
+            Statement and examples provided by CodeTrail.
+          </footer>
         </div>
       )}
     </div>
@@ -280,9 +257,9 @@ function EditorPanel() {
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col">
-      <div className="flex h-11 shrink-0 items-center justify-end gap-3 border-b border-line px-3">
-        <span className="hidden select-none whitespace-nowrap text-[11px] text-muted sm:inline">
-          C++17 · GNU G++17
+      <div className="flex min-h-11 shrink-0 items-center justify-between gap-3 border-b border-line px-3">
+        <span aria-label="Selected language: C++17" className="inline-flex h-7 items-center border border-line px-2 font-mono text-[11px] font-medium text-muted">
+          C++17
         </span>
         {isExternal ? (
           <button
@@ -296,7 +273,8 @@ function EditorPanel() {
           </button>
         ) : (
           <button
-            className="inline-flex h-8 shrink-0 items-center gap-2 bg-accent px-3 text-xs font-semibold text-accent-foreground outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-60"
+            aria-busy={running}
+            className="inline-flex h-8 shrink-0 items-center gap-2 bg-accent px-3 text-xs font-semibold text-accent-foreground outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-wait disabled:opacity-60"
             disabled={running}
             onClick={runSamples}
             type="button"
@@ -338,43 +316,22 @@ function EditorPanel() {
 }
 
 function ResultsPanel() {
-  const { problem, results, runError, selectedSample, setSelectedSample } = useWorkspace();
+  const { problem, results, runError, running, selectedSample, setSelectedSample } = useWorkspace();
   const isExternal = isExternalProblem(problem);
 
   if (isExternal) {
     return (
       <div className="flex h-full min-h-0 flex-col">
         <div className="flex min-h-11 shrink-0 items-center justify-between border-b border-line px-4">
-          <span className="text-xs font-medium text-muted">Testcase / Test Result</span>
-          <span className="border border-line px-1.5 py-0.5 text-[11px] text-muted">External</span>
+          <span className="text-xs font-medium text-foreground">Test Results</span>
+          <span className="border border-line px-1.5 py-0.5 text-[11px] text-muted">Unavailable</span>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-6">
           <div className="border border-line bg-surface p-4">
-            <h4 className="text-sm font-medium text-foreground">Sample tests not yet available</h4>
+            <h4 className="text-sm font-medium text-foreground">Execution unavailable</h4>
             <p className="mt-2 text-xs leading-6 text-muted">
-              Execution against sample test cases is currently supported for CodeTrail built-in problems. External Codeforces problems do not provide sample inputs and expected outputs via their public API.
+              Sample input and expected output are not available for this problem, so the code runner cannot check a result yet.
             </p>
-            <div className="mt-4">
-              <a
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-accent hover:underline focus-visible:ring-2 focus-visible:ring-accent"
-                href={problem.externalUrl}
-                rel="noreferrer"
-                target="_blank"
-              >
-                View problem test cases on Codeforces
-                <svg
-                  aria-hidden="true"
-                  className="size-3.5"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  viewBox="0 0 24 24"
-                >
-                  <path d="M14 4h6v6m0-6-9 9" />
-                  <path d="M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6" />
-                </svg>
-              </a>
-            </div>
           </div>
         </div>
       </div>
@@ -383,6 +340,22 @@ function ResultsPanel() {
 
   const activeResult = results?.[selectedSample];
   const passedCount = results?.filter((result) => result.passed).length ?? 0;
+  const verdictLabel = (result: SampleResult) => {
+    const verdict = result.verdict ?? (result.passed ? "accepted" : "wrong_answer");
+    return {
+      accepted: "Accepted",
+      wrong_answer: "Wrong Answer",
+      compilation_error: "Compilation Error",
+      runtime_error: "Runtime Error",
+      time_limit_exceeded: "Time Limit Exceeded",
+      service_error: "Execution Service Error",
+    }[verdict];
+  };
+  const verdictColor = (result: SampleResult) => result.passed
+    ? "text-emerald-500"
+    : result.verdict === "service_error"
+      ? "text-muted"
+      : "text-amber-500";
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -394,17 +367,22 @@ function ResultsPanel() {
             }`}
             aria-live="polite"
           >
-            {passedCount} / {results.length} passed
+            {passedCount} of {results.length} samples passed
           </p>
         )}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        {runError ? (
+        {running ? (
+          <div className="px-4 py-5" role="status" aria-live="polite">
+            <p className="text-sm font-medium text-foreground">Running sample tests</p>
+            <p className="mt-1 text-xs leading-5 text-muted">Compiling and checking your code against the examples…</p>
+          </div>
+        ) : runError ? (
           <div className="px-4 py-5" role="alert">
-            <p className="text-sm font-medium">Could not run samples</p>
+            <p className="text-sm font-medium text-foreground">Execution Service Error</p>
             <p className="mt-1 text-sm leading-6 text-muted">{runError}</p>
           </div>
-        ) : results ? (
+        ) : results && results.length > 0 ? (
           <>
             <div
               className="flex gap-1 overflow-x-auto border-b border-line px-3 py-2"
@@ -413,56 +391,71 @@ function ResultsPanel() {
             >
               {results.map((result, index) => (
                 <button
+                  aria-controls="sample-result-panel"
                   aria-selected={selectedSample === index}
-                  className={`shrink-0 px-3 py-1.5 text-xs font-medium transition-colors ${
+                  className={`shrink-0 px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
                     selectedSample === index
                       ? "bg-hover text-foreground"
                       : "text-muted hover:bg-hover hover:text-foreground"
                   }`}
-                  key={result.name}
+                  id={`sample-tab-${index}`}
+                  key={`${result.name}-${index}`}
                   onClick={() => setSelectedSample(index)}
                   role="tab"
                   type="button"
                 >
                   {result.name}
-                  <span className={`ml-2 ${result.passed ? "text-emerald-500" : "text-amber-500"}`}>
-                    {result.passed ? "Passed" : "Failed"}
+                  <span className={`ml-2 ${verdictColor(result)}`}>
+                    {verdictLabel(result)}
                   </span>
                 </button>
               ))}
             </div>
             {activeResult && (
-              <div className="grid gap-3 p-4 sm:grid-cols-2" role="tabpanel">
+              <div
+                aria-labelledby={`sample-tab-${selectedSample}`}
+                className="grid min-w-0 gap-3 p-4 sm:grid-cols-2"
+                id="sample-result-panel"
+                role="tabpanel"
+              >
+                <div className={`border border-line bg-surface px-3 py-2 text-xs font-semibold sm:col-span-2 ${verdictColor(activeResult)}`} aria-live="polite">
+                  {verdictLabel(activeResult)}
+                </div>
                 {activeResult.error && (
                   <div
-                    className="border border-amber-500/30 bg-amber-500/5 px-3 py-2.5 sm:col-span-2"
+                    className={`border px-3 py-2.5 sm:col-span-2 ${activeResult.verdict === "wrong_answer" ? "border-line bg-surface" : "border-amber-500/30 bg-amber-500/5"}`}
                     role="alert"
                   >
-                    <p className="mb-1 text-xs font-semibold text-amber-500">Execution details</p>
-                    <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-words font-mono text-xs leading-5 text-muted">
+                    <p className="mb-1 text-xs font-semibold text-muted">{activeResult.verdict === "wrong_answer" ? "Comparison" : "Execution details"}</p>
+                    <pre className="max-h-32 max-w-full overflow-auto whitespace-pre-wrap break-words font-mono text-xs leading-5 text-muted">
                       {activeResult.error}
                     </pre>
                   </div>
                 )}
-                <div>
+                <div className="min-w-0">
                   <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted">
                     Expected output
                   </p>
-                  <pre className="min-h-12 overflow-auto border border-line bg-surface p-2.5 font-mono text-xs leading-5">
-                    {activeResult.expectedOutput.trimEnd()}
+                  <pre className="min-h-12 max-w-full overflow-auto border border-line bg-surface p-2.5 font-mono text-xs leading-5">
+                    {activeResult.expectedOutput}
                   </pre>
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted">
                     Your output
                   </p>
-                  <pre className="min-h-12 overflow-auto border border-line bg-surface p-2.5 font-mono text-xs leading-5">
-                    {activeResult.actualOutput || <span className="text-muted">No output</span>}
+                  <pre className="min-h-12 max-w-full overflow-auto border border-line bg-surface p-2.5 font-mono text-xs leading-5">
+                    {activeResult.actualOutput === "" ? <span className="text-muted">(no output)</span> : activeResult.actualOutput}
                   </pre>
                 </div>
               </div>
             )}
           </>
+        ) : results ? (
+          <div className="px-4 py-5" role="status">
+            <p className="text-sm font-medium text-foreground">No sample results returned</p>
+            <p className="mt-1 text-xs leading-5 text-muted">Run the samples again to retry execution.</p>
+          </div>
         ) : (
           <div className="px-4 py-5">
             <p className="text-sm text-muted">Run your code to see how it handles the sample cases.</p>
@@ -527,9 +520,18 @@ export function ProblemWorkspace({ problem }: { problem: WorkspaceProblem }) {
         throw new Error("The execution service returned an invalid response.");
       }
       setResults(payload.results);
-      apiRef.current?.getPanel("results")?.api.setActive();
+      if (window.matchMedia("(max-width: 1023px)").matches) {
+        setMobilePanel("results");
+      } else {
+        apiRef.current?.getPanel("results")?.api.setActive();
+      }
     } catch (reason) {
       setRunError(reason instanceof Error ? reason.message : "Could not run samples. Please try again.");
+      if (window.matchMedia("(max-width: 1023px)").matches) {
+        setMobilePanel("results");
+      } else {
+        apiRef.current?.getPanel("results")?.api.setActive();
+      }
     } finally {
       setRunning(false);
     }
@@ -697,11 +699,16 @@ export function ProblemWorkspace({ problem }: { problem: WorkspaceProblem }) {
             ] as const).map(([id, label]) => (
               <button
                 aria-selected={mobilePanel === id}
-                className={`flex-1 px-2 py-3 text-xs ${
+                aria-controls="problem-mobile-panel"
+                className={`flex-1 px-2 py-3 text-xs outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent ${
                   mobilePanel === id ? "border-b-2 border-accent text-foreground" : "text-muted"
                 }`}
+                id={`problem-mobile-tab-${id}`}
                 key={id}
-                onClick={() => setMobilePanel(id)}
+                onClick={() => {
+                  setMobilePanel(id);
+                  if (id === "editor") requestAnimationFrame(() => editorRef.current?.layout());
+                }}
                 role="tab"
                 type="button"
               >
@@ -709,7 +716,12 @@ export function ProblemWorkspace({ problem }: { problem: WorkspaceProblem }) {
               </button>
             ))}
           </div>
-          <div className="min-h-0 flex-1">
+          <div
+            aria-labelledby={`problem-mobile-tab-${mobilePanel}`}
+            className="min-h-0 min-w-0 flex-1 overflow-hidden"
+            id="problem-mobile-panel"
+            role="tabpanel"
+          >
             <MobilePanel api={{} as never} containerApi={{} as never} params={{}} />
           </div>
         </div>

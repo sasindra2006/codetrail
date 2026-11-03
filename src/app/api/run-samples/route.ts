@@ -19,6 +19,18 @@ type Judge0Submission = {
   status?: { id?: unknown; description?: unknown };
 };
 
+type SampleVerdict =
+  | "accepted"
+  | "wrong_answer"
+  | "compilation_error"
+  | "runtime_error"
+  | "time_limit_exceeded"
+  | "service_error";
+
+function serviceError(error: string, actualOutput = "") {
+  return { passed: false, actualOutput, error, verdict: "service_error" as const };
+}
+
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
 }
@@ -89,11 +101,7 @@ async function executeSample(
         response: responseText.slice(0, 1000),
       });
 
-      return {
-        passed: false,
-        actualOutput: "",
-        error: `Judge0 rejected the submission (HTTP ${created.status}). Check the dev server terminal.`,
-      };
+      return serviceError(`Judge0 rejected the submission (HTTP ${created.status}). Check the dev server terminal.`);
     }
 
     const createdResult: unknown = await created.json();
@@ -101,14 +109,14 @@ async function executeSample(
       ? (createdResult as { token?: unknown }).token
       : null;
     if (typeof token !== "string" || !/^[a-zA-Z0-9-]+$/.test(token)) {
-      return { passed: false, actualOutput: "", error: "Judge0 returned an invalid run token." };
+      return serviceError("Judge0 returned an invalid run token.");
     }
 
     let result: Judge0Submission | null = null;
     for (let attempt = 0; attempt < maxPolls; attempt += 1) {
       await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
       result = await readSubmission(baseUrl, token, headers);
-      if (!result) return { passed: false, actualOutput: "", error: "Judge0 could not return this run result." };
+      if (!result) return serviceError("Judge0 could not return this run result.");
       const id = statusId(result);
       if (id !== null && id >= 3) break;
     }
@@ -119,14 +127,19 @@ async function executeSample(
     const message = decodeBase64(result?.message).slice(0, 8_000);
     const id = result ? statusId(result) : null;
     if (id === null || id < 3) {
-      return { passed: false, actualOutput, error: "This sample exceeded the execution wait limit. Try again shortly." };
+      return serviceError("The execution service did not finish before results became available. Try again shortly.", actualOutput);
     }
     if (id === 6) {
-      return { passed: false, actualOutput, error: compileOutput || "Compilation failed." };
+      return { passed: false, actualOutput, error: compileOutput || "Compilation failed.", verdict: "compilation_error" as const };
+    }
+    if (id === 5) {
+      return { passed: false, actualOutput, error: stderr || message || "The sample exceeded its execution time limit.", verdict: "time_limit_exceeded" as const };
     }
     if (id !== 3 && id !== 4) {
       const details = stderr || message;
-      return { passed: false, actualOutput, error: details || (typeof result?.status?.description === "string" ? result.status.description : "The program did not finish successfully.") };
+      const description = typeof result?.status?.description === "string" ? result.status.description : "The program did not finish successfully.";
+      const verdict: SampleVerdict = id === 13 ? "service_error" : "runtime_error";
+      return { passed: false, actualOutput, error: details || description, verdict };
     }
 
     const passed = normalizedOutput(actualOutput) === normalizedOutput(expectedOutput);
@@ -134,9 +147,10 @@ async function executeSample(
       passed,
       actualOutput,
       error: passed ? null : "Output did not match the expected result.",
+      verdict: passed ? "accepted" as const : "wrong_answer" as const,
     };
   } catch {
-    return { passed: false, actualOutput: "", error: "The execution service did not respond in time. Please try again." };
+    return serviceError("The execution service did not respond in time. Please try again.");
   }
 }
 

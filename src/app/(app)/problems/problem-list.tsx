@@ -85,12 +85,12 @@ const difficultyOrder: Record<Exclude<Difficulty, "all">, number> = {
   Unrated: 5,
 };
 
-export function ProblemList() {
+export function ProblemList({ initialSearch = "" }: { initialSearch?: string }) {
   const [problems, setProblems] = useState<Problem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [externalUnavailable, setExternalUnavailable] = useState(false);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialSearch);
   const [difficulty, setDifficulty] = useState<Difficulty>("all");
   const [selectedTag, setSelectedTag] = useState("all");
   const [sort, setSort] = useState<SortOption>("recommended");
@@ -304,7 +304,7 @@ export function ProblemList() {
                   <span className="flex items-center gap-2 sm:block">
                     <span className="text-[11px] text-muted sm:hidden">Difficulty</span>
                     <span className="inline-flex border border-line-strong px-2 py-1 text-xs text-muted">{difficultyLabel(problem)}</span>
-                    {problem.difficulty === null && isValidRating(problem.rating) && <span className="ml-2 text-[11px] text-muted" title="Original Codeforces problem rating">Rating {problem.rating}</span>}
+                    {problem.difficulty === null && isValidRating(problem.rating) && <span className="ml-2 text-[11px] text-muted" title="Original source rating">Rating {problem.rating}</span>}
                   </span>
                   <span className="flex min-w-0 flex-wrap gap-1.5">
                     <span className="w-full text-[11px] text-muted sm:hidden">Topics</span>

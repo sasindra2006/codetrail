@@ -2,6 +2,18 @@ export type SampleCase = {
   name: string;
   input: string;
   expectedOutput: string;
+  explanation?: string;
+};
+
+export type ProblemContentBlock =
+  | { type: "paragraph"; text: string }
+  | { type: "code"; code: string; language?: string }
+  | { type: "math"; latex: string }
+  | { type: "image"; src: string; alt: string; caption?: string };
+
+export type ProblemSection = {
+  title: "Description" | "Input" | "Output" | "Constraints" | "Notes" | "Explanation" | string;
+  content: ProblemContentBlock[];
 };
 
 export type InternalProblem = {
@@ -11,6 +23,7 @@ export type InternalProblem = {
   difficulty: "Easy";
   topics: string[];
   statement: string;
+  sections?: ProblemSection[];
   constraints: string[];
   samples: SampleCase[];
   explanation: string;

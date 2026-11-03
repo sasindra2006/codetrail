@@ -24,7 +24,11 @@ export function ThemeToggle() {
     const nextTheme = root.dataset.theme === "light" ? "dark" : "light";
     root.dataset.theme = nextTheme;
     root.style.colorScheme = nextTheme;
-    localStorage.setItem("codetrail-theme", nextTheme);
+    try {
+      localStorage.setItem("codetrail-theme", nextTheme);
+    } catch {
+      // The selected theme remains active until the page reloads.
+    }
   }
 
   return (

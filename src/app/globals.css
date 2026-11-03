@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "dockview-react/dist/styles/dockview.css";
+@import "katex/dist/katex.min.css";
 
 :root {
   --background: #09090b;
@@ -127,6 +128,29 @@ html[data-theme="dark"] .problem-description-scrollbar {
 
 .problem-description-scrollbar::-webkit-scrollbar-thumb:hover {
   background-color: var(--muted);
+}
+
+.problem-math-inline {
+  display: inline-block;
+  max-width: 100%;
+  overflow-x: auto;
+  vertical-align: middle;
+  color: var(--foreground);
+}
+
+.problem-math-display {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.75rem 0.25rem;
+  color: var(--foreground);
+  text-align: center;
+  scrollbar-width: thin;
+}
+
+.problem-description-scrollbar pre {
+  white-space: pre;
 }
 
 .problem-mobile { display: none; }
