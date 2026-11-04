@@ -1,4 +1,4 @@
-import { mysqlTable, timestamp, varchar, text, int, boolean, index } from "drizzle-orm/mysql-core";
+import { mysqlTable, timestamp, varchar, text, int, boolean, index, date } from "drizzle-orm/mysql-core";
 import { user } from "./auth-schema";
 
 export * from "./auth-schema";
@@ -16,6 +16,7 @@ export const userPreferences = mysqlTable("user_preference", {
   theme: varchar("theme", { length: 16 }).default("dark").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+  aiTutorConsentAt: timestamp("ai_tutor_consent_at", { fsp: 3 }),
 });
 
 export const problemSubmissions = mysqlTable(
@@ -39,3 +40,27 @@ export const problemSubmissions = mysqlTable(
     index("problem_submission_user_created_idx").on(table.userId, table.createdAt),
   ],
 );
+
+export const tutorConversations = mysqlTable("tutor_conversation", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  userId: varchar("user_id", { length: 36 }).notNull().references(() => user.id, { onDelete: "cascade" }),
+  title: varchar("title", { length: 120 }).default("New conversation").notNull(),
+  createdAt: timestamp("created_at", { fsp: 3 }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+}, (table) => [index("tutor_conversation_user_updated_idx").on(table.userId, table.updatedAt)]);
+
+export const tutorMessages = mysqlTable("tutor_message", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  conversationId: varchar("conversation_id", { length: 36 }).notNull().references(() => tutorConversations.id, { onDelete: "cascade" }),
+  role: varchar("role", { length: 16 }).notNull(),
+  content: text("content").notNull(),
+  status: varchar("status", { length: 16 }).default("complete").notNull(),
+  createdAt: timestamp("created_at", { fsp: 3 }).defaultNow().notNull(),
+}, (table) => [index("tutor_message_conversation_created_idx").on(table.conversationId, table.createdAt)]);
+
+export const tutorDailyUsage = mysqlTable("tutor_daily_usage", {
+  userId: varchar("user_id", { length: 36 }).primaryKey().references(() => user.id, { onDelete: "cascade" }),
+  periodDate: date("period_date", { mode: "string" }).notNull(),
+  requestCount: int("request_count").default(0).notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});

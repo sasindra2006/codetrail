@@ -15,6 +15,13 @@
       "when": 1793710283313,
       "tag": "0001_hard_thaddeus_ross",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1793809342710,
+      "tag": "0002_add_ai_tutor",
+      "breakpoints": true
     }
   ]
 }

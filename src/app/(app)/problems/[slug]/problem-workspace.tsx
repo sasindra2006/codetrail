@@ -40,7 +40,7 @@ const CodeEditor = dynamic(() => import("@monaco-editor/react"), {
 });
 
 const layoutStorageKey = "codetrail-problem-workspace-layout-v1";
-type PanelId = "problem" | "editor" | "results";
+type PanelId = "problem" | "editor" | "results" | "history";
 type SampleVerdict =
   | "accepted"
   | "wrong_answer"
@@ -89,6 +89,7 @@ type WorkspaceContextType = {
   resetLayout: () => void;
   editorRef: React.RefObject<MonacoEditor.IStandaloneCodeEditor | null>;
   monacoRef: React.RefObject<typeof import("monaco-editor") | null>;
+  historyVersion: number;
 };
 
 const WorkspaceContext = createContext<WorkspaceContextType | null>(null);
@@ -318,6 +319,15 @@ function EditorPanel() {
           </button>
         ) : (
           <>
+          {!isExternal && <Link
+            className="inline-flex h-8 shrink-0 items-center gap-2 border border-line px-2 text-xs font-medium text-muted outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-accent"
+            href="/tutor"
+            onClick={() => {
+              try { sessionStorage.setItem("codetrail-tutor-context", JSON.stringify({ problemSlug: problem.slug, language, editorCode: sourceCode })); }
+              catch { /* The tutor can still be opened without transferring editor context. */ }
+            }}
+            title="Open the tutor; editor code is only sent if you explicitly include it there"
+          >Ask AI Tutor</Link>}
           <button
             aria-busy={running || submitting}
             className="inline-flex h-8 shrink-0 items-center gap-2 border border-line px-3 text-xs font-semibold text-foreground outline-none transition-colors hover:bg-hover focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-wait disabled:opacity-60"
@@ -587,10 +597,53 @@ function ResultsPanel() {
   );
 }
 
+type HistoryItem = { id: string; language: string; status: string; passedCount: number; totalCount: number; createdAt: string };
+function HistoryPanel() {
+  const { problem, historyVersion } = useWorkspace();
+  const problemSlug = isExternalProblem(problem) ? null : problem.slug;
+  const [items, setItems] = useState<HistoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [selected, setSelected] = useState<{ item: HistoryItem; sourceCode: string } | null>(null);
+  const [detailError, setDetailError] = useState("");
+  const [detailLoading, setDetailLoading] = useState(false);
+  const load = useCallback(async () => {
+    setLoading(true); setError("");
+    try {
+      if (!problemSlug) { setItems([]); return; }
+      const response = await fetch(`/api/problems/${encodeURIComponent(problemSlug)}/submissions`, { cache: "no-store" });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error ?? "Could not load submission history.");
+      setItems(Array.isArray(body.submissions) ? body.submissions : []);
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not load submission history."); }
+    finally { setLoading(false); }
+  }, [problemSlug]);
+  useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, [load, historyVersion]);
+  const open = async (item: HistoryItem) => {
+    setSelected(null); setDetailError(""); setDetailLoading(true);
+    try {
+      const response = await fetch(`/api/submissions/${encodeURIComponent(item.id)}`, { cache: "no-store" });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error ?? "Could not load submitted code.");
+      setSelected({ item, sourceCode: body.submission.sourceCode });
+    } catch (reason) { setDetailError(reason instanceof Error ? reason.message : "Could not load submitted code."); }
+    finally { setDetailLoading(false); }
+  };
+  const labels: Record<string, string> = { accepted: "Accepted", wrong_answer: "Wrong Answer", time_limit_exceeded: "Time Limit Exceeded", runtime_error: "Runtime Error", compilation_error: "Compilation Error", internal_judge_error: "Internal Judge Error" };
+  return <div className="flex h-full min-h-0 flex-col">
+    <div className="flex min-h-11 shrink-0 items-center justify-between border-b border-line px-4"><span className="text-xs font-medium">Full submissions</span><button className="text-xs text-accent hover:underline" onClick={() => void load()} type="button">Refresh</button></div>
+    <div className="min-h-0 flex-1 overflow-y-auto p-3">
+      {loading && items.length === 0 ? <p className="p-3 text-sm text-muted" role="status">Loading history…</p> : error ? <div className="p-3 text-sm text-amber-500" role="alert">{error}<button className="ml-2 underline" onClick={() => void load()} type="button">Retry</button></div> : items.length === 0 ? <div className="p-3 text-sm text-muted">No full submissions for this problem yet.</div> : <ul className="divide-y divide-line">{items.map((item) => <li className="flex items-center justify-between gap-3 py-3" key={item.id}><div className="min-w-0"><p className={`text-sm font-medium ${item.status === "accepted" ? "text-emerald-500" : "text-amber-500"}`}>{labels[item.status] ?? item.status}</p><p className="mt-1 text-xs text-muted">{item.language === "cpp17" ? "C++17" : "Python 3"} · {item.passedCount}/{item.totalCount} · {new Date(item.createdAt).toLocaleString()}</p></div><button className="shrink-0 text-xs text-accent hover:underline" onClick={() => void open(item)} type="button">View code</button></li>)}</ul>}
+    </div>
+    {(selected || detailLoading || detailError) && <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-3" onMouseDown={(e) => { if (e.target === e.currentTarget) { setSelected(null); setDetailError(""); } }}><section aria-label="Historical submitted code" aria-modal="true" className="flex max-h-[90vh] w-full max-w-4xl flex-col border border-line bg-panel" role="dialog"><header className="flex items-start justify-between border-b border-line p-4"><div><h2 className="text-sm font-semibold">Historical submitted code</h2>{selected && <p className="mt-1 text-xs text-muted">{labels[selected.item.status]} · {selected.item.passedCount}/{selected.item.totalCount} · {selected.item.language === "cpp17" ? "C++17" : "Python 3"} · {new Date(selected.item.createdAt).toLocaleString()}</p>}</div><button className="border border-line px-3 py-1.5 text-xs" onClick={() => { setSelected(null); setDetailError(""); }} type="button">Close</button></header>{detailError ? <p className="p-5 text-sm text-amber-500" role="alert">{detailError}</p> : selected ? <div className="min-h-0 flex-1 p-2"><p className="px-3 py-2 text-xs text-muted">Read-only copy. Your current editor is unchanged.</p><CodeEditor height="min(65vh, 640px)" language={selected.item.language === "python3" ? "python" : "cpp"} options={{ readOnly: true, minimap: { enabled: false }, wordWrap: "on", scrollBeyondLastLine: false }} theme="vs-dark" value={selected.sourceCode} /></div> : <div className="grid h-64 place-items-center text-sm text-muted" role="status">Loading submitted code…</div>}</section></div>}
+  </div>;
+}
+
 const panelComponents: Record<PanelId, (props: IDockviewPanelProps) => React.ReactNode> = {
   problem: DescriptionPanel,
   editor: EditorPanel,
   results: ResultsPanel,
+  history: HistoryPanel,
 };
 
 export function ProblemWorkspace({ problem }: { problem: WorkspaceProblem }) {
@@ -612,6 +665,7 @@ export function ProblemWorkspace({ problem }: { problem: WorkspaceProblem }) {
   const [results, setResults] = useState<SampleResult[] | null>(null);
   const [selectedSample, setSelectedSample] = useState(0);
   const [mobilePanel, setMobilePanel] = useState<PanelId>("problem");
+  const [historyVersion, setHistoryVersion] = useState(0);
   const apiRef = useRef<DockviewApi | null>(null);
   const executionLockRef = useRef(false);
   const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null);
@@ -696,6 +750,7 @@ export function ProblemWorkspace({ problem }: { problem: WorkspaceProblem }) {
         message: payload.message,
         historySaved: payload.historySaved === true,
       });
+      if (payload.historySaved) setHistoryVersion((version) => version + 1);
       if (window.matchMedia("(max-width: 1023px)").matches) {
         setMobilePanel("results");
       } else {
@@ -741,6 +796,7 @@ export function ProblemWorkspace({ problem }: { problem: WorkspaceProblem }) {
       minimumWidth: 280,
       minimumHeight: 160,
     });
+    api.addPanel({ id: "history", component: "history", title: "Submissions", position: { referencePanel: "results", direction: "within" } });
     requestAnimationFrame(() => editorRef.current?.layout());
   }, []);
 
@@ -772,6 +828,7 @@ export function ProblemWorkspace({ problem }: { problem: WorkspaceProblem }) {
         minimumWidth: 280,
         minimumHeight: 160,
       });
+      api.addPanel({ id: "history", component: "history", title: "Submissions", position: { referencePanel: "results", direction: "within" } });
     };
 
     try {
@@ -782,7 +839,7 @@ export function ProblemWorkspace({ problem }: { problem: WorkspaceProblem }) {
           typeof candidate === "object" && candidate !== null && "panels" in candidate
             ? Object.keys((candidate as { panels?: object }).panels ?? {})
             : [];
-        const expectedPanels = ["problem", "editor", "results"];
+        const expectedPanels = ["problem", "editor", "results", "history"];
         const grid =
           typeof candidate === "object" && candidate !== null && "grid" in candidate
             ? (candidate as { grid?: { width?: number; height?: number } }).grid
@@ -846,6 +903,7 @@ export function ProblemWorkspace({ problem }: { problem: WorkspaceProblem }) {
       resetLayout,
       editorRef,
       monacoRef,
+      historyVersion,
     }),
     [
       problem,
@@ -864,6 +922,7 @@ export function ProblemWorkspace({ problem }: { problem: WorkspaceProblem }) {
       runSamples,
       submitSolution,
       resetLayout,
+      historyVersion,
     ]
   );
 
@@ -886,6 +945,7 @@ export function ProblemWorkspace({ problem }: { problem: WorkspaceProblem }) {
               ["problem", "Problem"],
               ["editor", "Code"],
               ["results", "Test results"],
+              ["history", "Submissions"],
             ] as const).map(([id, label]) => (
               <button
                 aria-selected={mobilePanel === id}

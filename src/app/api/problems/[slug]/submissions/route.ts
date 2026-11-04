@@ -33,7 +33,7 @@ export async function GET(
     return NextResponse.json({ error: "Authentication is temporarily unavailable." }, { status: 503 });
   }
   if (!session) {
-    return NextResponse.json({ error: "Sign in to view sample-run history." }, { status: 401 });
+    return NextResponse.json({ error: "Sign in to view submission history." }, { status: 401 });
   }
 
   try {
@@ -42,24 +42,23 @@ export async function GET(
         id: problemSubmissions.id,
         problemSlug: problemSubmissions.problemSlug,
         language: problemSubmissions.language,
-        sourceCode: problemSubmissions.sourceCode,
         status: problemSubmissions.status,
         passedCount: problemSubmissions.passedCount,
         totalCount: problemSubmissions.totalCount,
-        isSampleRun: problemSubmissions.isSampleRun,
         createdAt: problemSubmissions.createdAt,
       })
       .from(problemSubmissions)
       .where(and(
         eq(problemSubmissions.userId, session.user.id),
         eq(problemSubmissions.problemSlug, slug),
+        eq(problemSubmissions.isSampleRun, false),
       ))
       .orderBy(desc(problemSubmissions.createdAt))
       .limit(20);
 
     return NextResponse.json({ submissions }, { headers: { "Cache-Control": "no-store" } });
   } catch {
-    return NextResponse.json({ error: "Sample-run history could not be loaded." }, { status: 500 });
+    return NextResponse.json({ error: "Submission history could not be loaded." }, { status: 500 });
   }
 }
 

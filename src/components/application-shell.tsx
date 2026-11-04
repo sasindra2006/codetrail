@@ -15,6 +15,7 @@ const navigationItems: ReadonlyArray<{
   { label: "Dashboard", href: "/dashboard", icon: "dashboard" },
   { label: "Algorithms", href: "/algorithms", icon: "algorithms" },
   { label: "Problems", href: "/problems", icon: "problems" },
+  { label: "My Submissions", href: "/submissions", icon: "submissions" },
   { label: "Analytics", href: "/analytics", icon: "analytics" },
   { label: "AI Tutor", href: "/tutor", icon: "tutor" },
 ];
@@ -50,19 +51,25 @@ function Navigation({ compact = false }: { compact?: boolean }) {
         const active = isNavigationItemActive(pathname, item.href);
 
         return (
-          <Link
-            aria-current={active ? "page" : undefined}
-            className={`flex items-center gap-3 border text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent/70 ${
-              compact
-                ? `shrink-0 border-transparent px-3 py-2 ${active ? "bg-panel text-foreground" : "text-muted hover:bg-hover hover:text-foreground"}`
-                : `w-full px-3 py-2.5 text-left ${active ? "border-line-strong bg-panel text-foreground" : "border-transparent text-muted hover:border-line hover:bg-hover hover:text-foreground"}`
-            }`}
-            href={item.href}
-            key={item.label}
-          >
-            <NavigationIcon name={item.icon} />
-            {item.label}
-          </Link>
+          <div key={item.label}>
+            {item.href === "/algorithms" && !compact && (
+              <p className="px-3 pb-2 pt-4 text-[11px] font-medium uppercase tracking-[0.16em] text-muted">
+                Learn
+              </p>
+            )}
+            <Link
+              aria-current={active ? "page" : undefined}
+              className={`flex items-center gap-3 border text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent/70 ${
+                compact
+                  ? `shrink-0 border-transparent px-3 py-2 ${active ? "bg-panel text-foreground" : "text-muted hover:bg-hover hover:text-foreground"}`
+                  : `w-full px-3 py-2.5 text-left ${active ? "border-line-strong bg-panel text-foreground" : "border-transparent text-muted hover:border-line hover:bg-hover hover:text-foreground"}`
+              }`}
+              href={item.href}
+            >
+              <NavigationIcon name={item.icon} />
+              {item.label}
+            </Link>
+          </div>
         );
       })}
     </nav>
@@ -119,17 +126,22 @@ function Header({ showNavigation = true }: { showNavigation?: boolean }) {
 export function ApplicationShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const isProblemDetail = pathname.startsWith("/problems/") && pathname !== "/problems";
-  const shellClass = isProblemDetail
+  const isTutorPage = pathname === "/tutor";
+  const shellClass = isTutorPage
+    ? "flex h-dvh min-h-0 overflow-hidden bg-surface text-foreground"
+    : isProblemDetail
     ? "flex h-dvh min-h-0 overflow-hidden bg-surface text-foreground max-lg:h-auto max-lg:min-h-dvh max-lg:overflow-visible"
     : "flex min-h-screen bg-surface text-foreground";
-  const mainClass = isProblemDetail
+  const mainClass = isTutorPage
+    ? "flex min-h-0 min-w-0 flex-1 overflow-hidden px-3 py-3 sm:px-5 sm:py-4 lg:px-8"
+    : isProblemDetail
     ? "flex min-h-0 flex-1 overflow-hidden px-5 py-4 sm:px-8 lg:px-8 max-lg:overflow-visible max-lg:py-5"
     : "flex flex-1 px-5 py-10 sm:px-8 sm:py-14 lg:px-12";
 
   return (
     <div className={shellClass}>
       {!isProblemDetail && <Sidebar />}
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className={isTutorPage ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden" : "flex min-w-0 flex-1 flex-col"}>
         <Header showNavigation={!isProblemDetail} />
         <main className={mainClass}>
           {children}
