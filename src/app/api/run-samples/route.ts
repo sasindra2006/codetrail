@@ -5,6 +5,8 @@ import { getDatabase } from "@/lib/db";
 import { problemSubmissions } from "@/lib/db/schema";
 import { getFunctionTestCases } from "@/lib/function-test-cases";
 import { findInternalProblem, type FunctionTestCase, type SupportedLanguage } from "@/lib/problems";
+import { ExercismProviderError, getExercismAdapter, getExercismFunctionTestCases, getExercismProblem } from "@/lib/exercism";
+import { buildStructuralSampleSource } from "@/lib/structural-execution-adapter";
 
 export const maxDuration = 30;
 
@@ -212,16 +214,61 @@ function cppJsonStringSerializer() {
 }
 
 function buildCppOtherFunctionSource(slug: string, sourceCode: string, testCase: FunctionTestCase) {
-  const prefix = `#include <iostream>\n#include <string>\n#include <vector>\nusing namespace std;\n\n${cppJsonStringSerializer()}\n\n${sourceCode}\n\n`;
+  const prefix = `#include <algorithm>\n#include <cstddef>\n#include <deque>\n#include <functional>\n#include <iostream>\n#include <numeric>\n#include <queue>\n#include <stdexcept>\n#include <string>\n#include <unordered_map>\n#include <unordered_set>\n#include <vector>\nusing namespace std;\n\n${cppJsonStringSerializer()}\n\n${sourceCode}\n\n`;
+  const adapter = getExercismAdapter(slug);
+  if (testCase.input.kind === "integer" && adapter) {
+    return `${prefix}int main() {\n    const auto result = ${adapter.cppNamespace}::${adapter.cppFunction}(${testCase.input.value});\n    std::cout << '[';\n    for (std::size_t i = 0; i < result.size(); ++i) { if (i) std::cout << ','; std::cout << result[i]; }\n    std::cout << "]\\n";\n}\n`;
+  }
   if (testCase.input.kind === "number-array") {
-    const method = slug === "maximum-subarray-sum" ? "maxSubArray" : "missingNumber";
-    return `${prefix}int main() {\n    std::vector<int> nums{${testCase.input.nums.join(", ")}};\n    Solution solution;\n    const int result = solution.${method}(nums);\n    std::cout << result << '\\n';\n    return 0;\n}\n`;
+    const method = findInternalProblem(slug)?.functionSignature?.name;
+    if (!method) throw new Error("No C++ array function is configured for this problem.");
+    return `${prefix}int main() {\n    std::vector<int> nums{${testCase.input.nums.join(", ")}};\n    Solution solution;\n    const long long result = solution.${method}(nums);\n    std::cout << result << '\\n';\n    return 0;\n}\n`;
+  }
+  if (testCase.input.kind === "graph") {
+    const graphInput = testCase.input;
+    const problem = findInternalProblem(slug);
+    const method = problem?.functionSignature?.name;
+    if (!method || !problem.functionSignature) throw new Error("No graph function is configured for this problem.");
+    const edges = graphInput.edges.map((edge) => `{${edge.join(", ")}}`).join(", ");
+    const args = problem.functionSignature.parameters.map((parameter) => {
+      if (parameter.name === "nodeCount") return String(graphInput.nodeCount);
+      if (parameter.name === "edges") return "edges";
+      if (parameter.name === "start") return String(graphInput.start);
+      if (parameter.name === "target") return String(graphInput.target ?? 0);
+      if (parameter.name === "directed") return JSON.stringify(graphInput.directed);
+      throw new Error(`Unsupported graph parameter ${parameter.name}.`);
+    });
+    const output = problem.functionSignature.returns === "bool"
+      ? `std::cout << (result ? "true" : "false") << '\\n';`
+      : `std::cout << result << '\\n';`;
+    return `${prefix}int main() {\n    std::vector<std::vector<int>> edges{${edges}};\n    Solution solution;\n    const auto result = solution.${method}(${args.join(", ")});\n    ${output}\n    return 0;\n}\n`;
+  }
+  if (testCase.input.kind === "binary-search") {
+    if (!adapter?.cppException) throw new Error("The Exercism binary-search adapter is unavailable.");
+    return `${prefix}int main() {\n    const std::vector<int> data{${testCase.input.nums.join(", ")}};\n    try {\n        std::cout << ${adapter.cppNamespace}::${adapter.cppFunction}(data, ${testCase.input.target}) << '\\n';\n    } catch (const ${adapter.cppException}&) {\n        std::cout << "{\\\"exception\\\":\\\"value-not-found\\\"}\\n";\n    }\n    return 0;\n}\n`;
   }
   if (testCase.input.kind === "string" && slug === "reverse-words") {
     return `${prefix}int main() {\n    Solution solution;\n    const std::string result = solution.reverseWords(${JSON.stringify(testCase.input.value)});\n    emitJsonString(result);\n    std::cout << '\\n';\n    return 0;\n}\n`;
   }
   if (testCase.input.kind === "string" && slug === "valid-palindrome") {
     return `${prefix}int main() {\n    Solution solution;\n    const bool result = solution.isPalindrome(${JSON.stringify(testCase.input.value)});\n    std::cout << (result ? \"true\" : \"false\") << '\\n';\n    return 0;\n}\n`;
+  }
+  if (testCase.input.kind === "string" && adapter) {
+    return `${prefix}int main() {\n    const bool result = ${adapter.cppNamespace}::${adapter.cppFunction}(${JSON.stringify(testCase.input.value)});\n    std::cout << (result ? "true" : "false") << '\\n';\n}\n`;
+  }
+  if (testCase.input.kind === "number-array-pair" && adapter?.cppEnumType) {
+    const labels = ["equal", "sublist", "superlist", "unequal"] as const;
+    const comparisons = labels.map((label) => `if (result == ${adapter.cppEnumType}::${adapter.cppEnumValues?.[label] ?? label}) { emitJsonString("${label}"); }`).join(" else ");
+    return `${prefix}int main() {\n    const std::vector<int> first{${testCase.input.first.join(", ")}};\n    const std::vector<int> second{${testCase.input.second.join(", ")}};\n    const auto result = ${adapter.cppNamespace}::${adapter.cppFunction}(first, second);\n    ${comparisons}\n    else { emitJsonString("invalid"); }\n    std::cout << '\\n';\n}\n`;
+  }
+  if (testCase.input.kind === "integer-base-reencoding" && adapter) {
+    const inputType = adapter.cppInputType ?? "std::vector<int>";
+    const exceptionResult = testCase.expectedException ? `std::cout << "{\\\"exception\\\":\\\"invalid-argument\\\"}";` : `std::cout << "null";`;
+    return `${prefix}int main() {\n    const ${inputType} digits{${testCase.input.digits.join(", ")}};\n    try {\n        const auto result = ${adapter.cppNamespace}::${adapter.cppFunction}(${testCase.input.inputBase}, digits, ${testCase.input.outputBase});\n        std::cout << '[';\n        for (std::size_t i = 0; i < result.size(); ++i) { if (i) std::cout << ','; std::cout << result[i]; }\n        std::cout << ']';\n    } catch (const ${adapter.cppException ?? "std::invalid_argument"}&) { ${exceptionResult} }\n    std::cout << '\\n';\n}\n`;
+  }
+  if (testCase.input.kind === "string-grid-transform" && adapter) {
+    const rows = testCase.input.rows.map((row) => JSON.stringify(row)).join(", ");
+    return `${prefix}int main() {\n    const std::vector<std::string> input{${rows}};\n    const auto result = ${adapter.cppNamespace}::${adapter.cppFunction}(input);\n    std::cout << '[';\n    for (std::size_t i = 0; i < result.size(); ++i) { if (i) std::cout << ','; emitJsonString(result[i]); }\n    std::cout << "]\\n";\n}\n`;
   }
   throw new Error("No C++ function wrapper is configured for this problem.");
 }
@@ -235,24 +282,57 @@ function buildPythonFunctionSource(sourceCode: string, testCase: FunctionTestCas
 
 function buildPythonOtherFunctionSource(slug: string, sourceCode: string, testCase: FunctionTestCase) {
   let call: string;
-  if (testCase.input.kind === "number-array") {
-    const method = slug === "maximum-subarray-sum" ? "maxSubArray" : "missingNumber";
+  const adapter = getExercismAdapter(slug);
+  if (testCase.input.kind === "integer" && adapter) {
+    call = `${adapter.pythonFunction}(${testCase.input.value})`;
+  } else if (testCase.input.kind === "number-array") {
+    const method = findInternalProblem(slug)?.functionSignature?.name;
+    if (!method) throw new Error("No Python array function is configured for this problem.");
     call = `Solution().${method}(${JSON.stringify(testCase.input.nums)})`;
+  } else if (testCase.input.kind === "graph") {
+    const graphInput = testCase.input;
+    const problem = findInternalProblem(slug);
+    if (!problem?.functionSignature) throw new Error("No Python graph function is configured for this problem.");
+    const args = problem.functionSignature.parameters.map((parameter) => {
+      if (parameter.name === "nodeCount") return String(graphInput.nodeCount);
+      if (parameter.name === "edges") return JSON.stringify(graphInput.edges);
+      if (parameter.name === "start") return String(graphInput.start);
+      if (parameter.name === "target") return String(graphInput.target ?? 0);
+      if (parameter.name === "directed") return graphInput.directed ? "True" : "False";
+      throw new Error(`Unsupported graph parameter ${parameter.name}.`);
+    });
+    call = `Solution().${problem.functionSignature.name}(${args.join(", ")})`;
+  } else if (testCase.input.kind === "binary-search") {
+    if (!adapter?.pythonException) throw new Error("The Exercism binary-search adapter is unavailable.");
+    return `${sourceCode}\n\nimport json as __codetrail_json\ntry:\n    __codetrail_result = ${adapter.pythonFunction}(${JSON.stringify(testCase.input.nums)}, ${testCase.input.target})\n    print(__codetrail_json.dumps(__codetrail_result, separators=(",", ":")))\nexcept ${adapter.pythonException}:\n    print('{"exception":"value-not-found"}')\n`;
   } else if (testCase.input.kind === "string" && slug === "reverse-words") {
     call = `Solution().reverseWords(${JSON.stringify(testCase.input.value)})`;
   } else if (testCase.input.kind === "string" && slug === "valid-palindrome") {
     call = `Solution().isPalindrome(${JSON.stringify(testCase.input.value)})`;
+  } else if (testCase.input.kind === "string" && adapter) {
+    call = `${adapter.pythonFunction}(${JSON.stringify(testCase.input.value)})`;
+  } else if (testCase.input.kind === "number-array-pair" && adapter?.pythonConstants) {
+    const constants = adapter.pythonConstants;
+    const entries = Object.entries(constants).map(([label, name]) => `${name}: ${JSON.stringify(label)}`).join(", ");
+    const tuple = Object.values(constants).join(", ");
+    return `${sourceCode}\n\nimport json as __codetrail_json\n__codetrail_constants = (${tuple})\n__codetrail_lists_unique = len(set(__codetrail_constants)) == 4\n__codetrail_result = ${adapter.pythonFunction}(${JSON.stringify(testCase.input.first)}, ${JSON.stringify(testCase.input.second)})\n__codetrail_labels = {${entries}}\n__codetrail_output = __codetrail_labels.get(__codetrail_result, "invalid") if __codetrail_lists_unique else "invalid"\nprint(__codetrail_json.dumps(__codetrail_output, separators=(",", ":")))\n`;
+  } else if (testCase.input.kind === "integer-base-reencoding" && adapter) {
+    return `${sourceCode}\n\nimport json as __codetrail_json\ntry:\n    __codetrail_result = ${adapter.pythonFunction}(${testCase.input.inputBase}, ${JSON.stringify(testCase.input.digits)}, ${testCase.input.outputBase})\n    print(__codetrail_json.dumps(__codetrail_result, separators=(",", ":")))\nexcept ${adapter.pythonException ?? "ValueError"}:\n    print('{"exception":"invalid-argument"}')\n`;
+  } else if (testCase.input.kind === "string-grid-transform" && adapter) {
+    call = `${adapter.pythonFunction}(${JSON.stringify(testCase.input.rows)})`;
+  } else if (testCase.input.kind === "domino-chain-check" && adapter) {
+    call = `${adapter.pythonFunction}([tuple(__codetrail_tile) for __codetrail_tile in ${JSON.stringify(testCase.input.dominoes)}])`;
   } else {
     throw new Error("No Python function wrapper is configured for this problem.");
   }
   return `${sourceCode}\n\nimport json as __codetrail_json\n__codetrail_result = ${call}\nprint(__codetrail_json.dumps(__codetrail_result, ensure_ascii=True, separators=(",", ":")))\n`;
 }
 
-function matchesExpectedFunctionOutput(value: unknown, expected: FunctionTestCase["expectedOutput"]) {
+function matchesExpectedFunctionOutput(value: unknown, expected: FunctionTestCase["expectedOutput"]): boolean {
   if (Array.isArray(expected)) {
     return Array.isArray(value)
       && value.length === expected.length
-      && value.every((entry, index) => typeof entry === "number" && Number.isSafeInteger(entry) && entry === expected[index]);
+      && value.every((entry, index) => matchesExpectedFunctionOutput(entry, expected[index] as FunctionTestCase["expectedOutput"]));
   }
   if (typeof expected === "number") {
     return typeof value === "number" && Number.isSafeInteger(value) && value === expected;
@@ -269,13 +349,14 @@ async function executeFunctionCase(
   sourceCode: string,
   testCase: FunctionTestCase,
 ) {
-  const wrappedSource = language === "cpp17"
+  const structuralSource = buildStructuralSampleSource(slug, language, sourceCode, testCase);
+  const wrappedSource = structuralSource ?? (language === "cpp17"
     ? testCase.input.kind === "two-sum"
       ? buildCppFunctionSource(sourceCode, testCase)
       : buildCppOtherFunctionSource(slug, sourceCode, testCase)
     : testCase.input.kind === "two-sum"
       ? buildPythonFunctionSource(sourceCode, testCase)
-      : buildPythonOtherFunctionSource(slug, sourceCode, testCase);
+      : buildPythonOtherFunctionSource(slug, sourceCode, testCase));
   const execution = await executeProgram(baseUrl, headers, languageId, wrappedSource, "");
   if (execution.error) {
     return {
@@ -301,19 +382,32 @@ async function executeFunctionCase(
     };
   }
 
-  const passed = matchesExpectedFunctionOutput(returnedValue, testCase.expectedOutput);
+  const expectedMissing = Boolean(testCase.expectedException)
+    && typeof returnedValue === "object" && returnedValue !== null
+    && "exception" in returnedValue && returnedValue.exception === testCase.expectedException;
+  const passed = testCase.expectedException
+    ? expectedMissing
+    : matchesExpectedFunctionOutput(returnedValue, testCase.expectedOutput);
   return {
     name: testCase.name,
     passed,
     actualOutput: JSON.stringify(returnedValue),
     error: passed ? null : testCase.input.kind === "two-sum"
       ? "The returned indices did not match the expected result."
-      : "The returned value did not match the expected result.",
+      : testCase.expectedException ? "The function did not report a missing value as required." : "The returned value did not match the expected result.",
     verdict: passed ? "accepted" as const : "wrong_answer" as const,
   };
 }
 
 export async function POST(request: Request) {
+  let session;
+  try {
+    session = await getSession(request.headers);
+  } catch {
+    return jsonError("Authentication is temporarily unavailable.", 503);
+  }
+  if (!session) return jsonError("Sign in to run problem tests.", 401);
+
   const contentLength = Number(request.headers.get("content-length"));
   if (Number.isFinite(contentLength) && contentLength > maxRequestBytes) {
     return jsonError("The run request is too large.", 413);
@@ -370,7 +464,12 @@ export async function POST(request: Request) {
   if (language !== "cpp17" && language !== "python3") {
     return jsonError("Choose a supported programming language.", 400);
   }
-  const problem = findInternalProblem(slug);
+  let problem;
+  try {
+    problem = findInternalProblem(slug) ?? await getExercismProblem(slug);
+  } catch (error) {
+    return jsonError(error instanceof ExercismProviderError ? error.message : "Exercism is temporarily unavailable.", 503);
+  }
   if (!problem) return jsonError("That CodeTrail problem could not be found.", 404);
   const executionMode = problem.executionMode ?? "stdio";
   if (executionMode === "stdio" && language !== "cpp17") {
@@ -379,7 +478,16 @@ export async function POST(request: Request) {
   if (executionMode === "function" && !problem.supportedLanguages?.includes(language)) {
     return jsonError("That language is not supported for this problem.", 400);
   }
-  const functionTestCases = executionMode === "function" ? getFunctionTestCases(problem.slug) : null;
+  let functionTestCases = null;
+  if (executionMode === "function") {
+    try {
+      functionTestCases = problem.kind === "exercism"
+        ? await getExercismFunctionTestCases(problem.slug, language, false)
+        : getFunctionTestCases(problem.slug);
+    } catch (error) {
+      return jsonError(error instanceof ExercismProviderError ? error.message : "Exercism is temporarily unavailable.", 503);
+    }
+  }
   if (executionMode === "function" && !functionTestCases) {
     return jsonError("Function execution is not configured for this problem.", 501);
   }
@@ -428,7 +536,7 @@ export async function POST(request: Request) {
       headers,
       languageId,
       language,
-      problem.slug,
+      problem.kind === "exercism" ? problem.adapterId : problem.slug,
       sourceCode,
       testCase,
     ).then((result) => {
@@ -456,21 +564,10 @@ export async function POST(request: Request) {
       ...await executeSample(judge0Url, headers, languageId, sourceCode, sample.input, sample.expectedOutput),
     })));
 
-  let session;
-  try {
-    session = await getSession(request.headers);
-  } catch {
-    return NextResponse.json(
-      { results, history: { saved: false, error: "The sample run completed, but your session could not be verified, so its history was not saved." } },
-      { headers: { "Cache-Control": "no-store" } },
-    );
-  }
-  if (!session) {
-    return NextResponse.json({ results }, { headers: { "Cache-Control": "no-store" } });
-  }
-
   const passedCount = results.filter((result) => result.passed).length;
   const failedResult = results.find((result) => !result.passed);
+  const diagnosticResult = results.find((result) => result.error && result.verdict && ["compilation_error", "runtime_error", "time_limit_exceeded", "service_error"].includes(result.verdict));
+  const executionDiagnostic = diagnosticResult?.error?.slice(0, 8_000) ?? null;
   const status = !failedResult
     ? "sample_passed"
     : failedResult.verdict && failedResult.verdict !== "accepted"
@@ -484,6 +581,7 @@ export async function POST(request: Request) {
       problemSlug: problem.slug,
       language,
       sourceCode,
+      executionDiagnostic,
       status,
       passedCount,
       totalCount: results.length,

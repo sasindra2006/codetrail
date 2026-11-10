@@ -29,6 +29,7 @@ export const problemSubmissions = mysqlTable(
     problemSlug: varchar("problem_slug", { length: 128 }).notNull(),
     language: varchar("language", { length: 32 }).default("cpp17").notNull(),
     sourceCode: text("source_code").notNull(),
+    executionDiagnostic: text("execution_diagnostic"),
     status: varchar("status", { length: 32 }).notNull(),
     passedCount: int("passed_count").default(0).notNull(),
     totalCount: int("total_count").default(0).notNull(),

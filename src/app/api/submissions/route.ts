@@ -4,6 +4,7 @@ import { getSession } from "@/lib/auth-server";
 import { getDatabase } from "@/lib/db";
 import { problemSubmissions } from "@/lib/db/schema";
 import { findInternalProblem } from "@/lib/problems";
+import { getExercismProblemTitle } from "@/lib/exercism";
 
 const verdicts = ["accepted", "wrong_answer", "time_limit_exceeded", "runtime_error", "compilation_error", "internal_judge_error"] as const;
 const languages = ["cpp17", "python3"] as const;
@@ -27,7 +28,7 @@ export async function GET(request: Request) {
   const problem = params.get("problem");
   if (verdict && !verdicts.includes(verdict as typeof verdicts[number])) return NextResponse.json({ error: "Invalid verdict filter." }, { status: 400 });
   if (language && !languages.includes(language as typeof languages[number])) return NextResponse.json({ error: "Invalid language filter." }, { status: 400 });
-  if (problem && !findInternalProblem(problem)) return NextResponse.json({ error: "Invalid problem filter." }, { status: 400 });
+  if (problem && !findInternalProblem(problem) && !getExercismProblemTitle(problem)) return NextResponse.json({ error: "Invalid problem filter." }, { status: 400 });
 
   try {
     const conditions = [eq(problemSubmissions.userId, session.user.id), eq(problemSubmissions.isSampleRun, false)];
@@ -40,7 +41,10 @@ export async function GET(request: Request) {
       totalCount: problemSubmissions.totalCount, createdAt: problemSubmissions.createdAt,
     }).from(problemSubmissions).where(and(...conditions)).orderBy(desc(problemSubmissions.createdAt)).limit(limit + 1).offset(offset);
     const hasMore = rows.length > limit;
-    const submissions = rows.slice(0, limit).map((row) => ({ ...row, problemTitle: findInternalProblem(row.problemSlug)?.title ?? row.problemSlug }));
+    const submissions = rows.slice(0, limit).map((row) => ({
+      ...row,
+      problemTitle: findInternalProblem(row.problemSlug)?.title ?? getExercismProblemTitle(row.problemSlug) ?? row.problemSlug,
+    }));
     return NextResponse.json({ submissions, hasMore, limit, offset }, { headers: { "Cache-Control": "no-store" } });
   } catch {
     return NextResponse.json({ error: "Submissions could not be loaded." }, { status: 500 });

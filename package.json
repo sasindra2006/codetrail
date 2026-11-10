@@ -7,6 +7,9 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
+    "verify:problems": "node scripts/verify-problems.cjs",
+    "exercism:discover": "node scripts/exercism-discover.mjs",
+    "exercism:audit": "node scripts/exercism-audit.mjs",
     "auth:generate-schema": "auth generate --yes --config src/lib/auth-schema-config.ts --adapter drizzle --dialect mysql --output src/lib/db/auth-schema.ts",
     "db:generate": "node --env-file=.env.local scripts/drizzle.mjs generate",
     "db:migrate": "node --env-file=.env.local scripts/drizzle.mjs migrate"
@@ -23,6 +26,10 @@
     "next": "16.3.4",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "react-markdown": "^10.1.0",
+    "rehype-katex": "^7.0.1",
+    "remark-gfm": "^4.0.1",
+    "remark-math": "^6.0.0",
     "server-only": "^0.0.1",
     "zod": "^4.6.7"
   },

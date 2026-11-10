@@ -10,8 +10,8 @@ export async function getSession(requestHeaders?: Headers) {
   return auth.api.getSession({ headers: resolvedHeaders });
 }
 
-export async function requireSession() {
+export async function requireSession(returnTo = "/dashboard") {
   const session = await getSession();
-  if (!session) redirect("/login");
+  if (!session) redirect(`/login?returnTo=${encodeURIComponent(returnTo)}`);
   return session;
 }

@@ -1,0 +1,631 @@
+{
+  "schemaVersion": 1,
+  "exercises": {
+    "binary-search": {
+      "slug": "binary-search",
+      "title": "Binary Search",
+      "metadataSourceName": "Wikipedia",
+      "metadataSourceUrl": "https://en.wikipedia.org/wiki/Binary_search_algorithm",
+      "sourceName": "Wikipedia",
+      "sourceUrl": "https://en.wikipedia.org/wiki/Binary_search_algorithm",
+      "statementLicense": "CC BY-SA 4.0",
+      "statementLicenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "statementPath": "instructions.md",
+      "publicExampleUuid": "b55c24a9-a98d-4379-a08c-2adcf8ebeee8",
+      "statementChanges": "Adapted into Exercism exercise instructions and formatted by CodeTrail; this statement and formatting adaptation are distributed under CC BY-SA 4.0.",
+      "tracks": {
+        "python3": {
+          "repository": "python",
+          "sha": "6105f6d9d3ef66ce3d5c8f529d2882af3d76b706",
+          "track": "python",
+          "difficulty": 1,
+          "concepts": [
+            "loops"
+          ],
+          "starterPath": "exercises/practice/binary-search/binary_search.py",
+          "testFile": "binary_search_test.py",
+          "uuid": "a8288e93-93c5-4e0f-896c-2a376f6f6e5e"
+        },
+        "cpp17": {
+          "repository": "xcpp",
+          "sha": "8d139cb04c7463722ae1f233099cc0bd39a71092",
+          "track": "xcpp",
+          "difficulty": 4,
+          "concepts": [
+            "arrays",
+            "conditionals",
+            "loops",
+            "searching"
+          ],
+          "starterPath": "exercises/practice/binary-search/binary_search.cpp",
+          "testFile": "binary_search_test.cpp",
+          "uuid": "abdd7aa3-25f6-4d27-a4dc-6bd1ea2f718c"
+        }
+      },
+      "status": "playable",
+      "adapterId": "binary-search-index",
+      "review": {
+        "instructions": {
+          "status": "approved",
+          "sourceName": "Wikipedia",
+          "sourceUrl": "https://en.wikipedia.org/wiki/Binary_search_algorithm",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+        },
+        "tests": {
+          "status": "approved",
+          "sourceUrl": "https://github.com/exercism/problem-specifications/blob/7b49ec415e9169cce4aa0206d2b51ce66d98b9aa/exercises/binary-search/canonical-data.json",
+          "license": "MIT",
+          "licenseUrl": "https://github.com/exercism/problem-specifications/blob/7b49ec415e9169cce4aa0206d2b51ce66d98b9aa/LICENSE"
+        },
+        "adapters": {
+          "status": "playable",
+          "verifiedLanguages": [
+            "python3",
+            "cpp17"
+          ],
+          "verificationNote": "Full canonical suite passed against Judge0 and through the submission API."
+        }
+      }
+    },
+    "sieve": {
+      "slug": "sieve",
+      "title": "Sieve",
+      "metadataSourceName": "Sieve of Eratosthenes at Wikipedia",
+      "metadataSourceUrl": "https://en.wikipedia.org/wiki/Sieve_of_Eratosthenes",
+      "sourceName": "Sieve of Eratosthenes at Wikipedia",
+      "sourceUrl": "https://en.wikipedia.org/wiki/Sieve_of_Eratosthenes",
+      "statementLicense": "CC BY-SA 4.0",
+      "statementLicenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "statementPath": "instructions.md",
+      "publicExampleUuid": "974945d8-8cd9-4f00-9463-7d813c7f17b7",
+      "statementChanges": "Adapted from the pinned Exercism specification, which attributes the Sieve of Eratosthenes material to Wikipedia. The statement adaptation is distributed under CC BY-SA 4.0.",
+      "tracks": {
+        "python3": {
+          "repository": "python",
+          "sha": "6105f6d9d3ef66ce3d5c8f529d2882af3d76b706",
+          "track": "python",
+          "difficulty": null,
+          "concepts": [],
+          "starterPath": "exercises/practice/sieve/sieve.py",
+          "testFile": "sieve_test.py",
+          "uuid": "ad0192e6-7742-4922-a53e-791e25eb9ba3"
+        },
+        "cpp17": {
+          "repository": "xcpp",
+          "sha": "8d139cb04c7463722ae1f233099cc0bd39a71092",
+          "track": "xcpp",
+          "difficulty": null,
+          "concepts": [],
+          "starterPath": "exercises/practice/sieve/sieve.cpp",
+          "testFile": "sieve_test.cpp",
+          "uuid": "7ea05dd1-2c3c-499e-8608-dc76d30c5457"
+        }
+      },
+      "status": "playable",
+      "adapterId": "integer-to-prime-list",
+      "review": {
+        "instructions": {
+          "status": "approved",
+          "sourceName": "Sieve of Eratosthenes at Wikipedia",
+          "sourceUrl": "https://en.wikipedia.org/wiki/Sieve_of_Eratosthenes",
+          "license": "CC BY-SA 4.0",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+        },
+        "tests": {
+          "status": "approved",
+          "sourceUrl": "https://github.com/exercism/problem-specifications/blob/7b49ec415e9169cce4aa0206d2b51ce66d98b9aa/exercises/sieve/canonical-data.json",
+          "license": "MIT",
+          "licenseUrl": "https://github.com/exercism/problem-specifications/blob/7b49ec415e9169cce4aa0206d2b51ce66d98b9aa/LICENSE"
+        },
+        "adapters": {
+          "status": "playable",
+          "verifiedLanguages": [
+            "python3",
+            "cpp17"
+          ],
+          "verificationNote": "Full canonical suite passed against Judge0 and through the submission API."
+        }
+      }
+    },
+    "matching-brackets": {
+      "slug": "matching-brackets",
+      "title": "Matching Brackets",
+      "metadataSourceName": "Ginna Baker",
+      "metadataSourceUrl": null,
+      "sourceName": "Ginna Baker",
+      "sourceUrl": "https://github.com/exercism/problem-specifications/blob/7b49ec415e9169cce4aa0206d2b51ce66d98b9aa/exercises/matching-brackets/metadata.toml",
+      "statementLicense": "MIT",
+      "statementLicenseUrl": "https://github.com/exercism/problem-specifications/blob/7b49ec415e9169cce4aa0206d2b51ce66d98b9aa/LICENSE",
+      "statementPath": "instructions.md",
+      "publicExampleUuid": "81ec11da-38dd-442a-bcf9-3de7754609a5",
+      "statementChanges": "Statement and canonical tests are reused from the pinned Exercism problem-specifications repository under its MIT license; the source credit to Ginna Baker is retained.",
+      "tracks": {
+        "python3": {
+          "repository": "python",
+          "sha": "6105f6d9d3ef66ce3d5c8f529d2882af3d76b706",
+          "track": "python",
+          "difficulty": null,
+          "concepts": [],
+          "starterPath": "exercises/practice/matching-brackets/matching_brackets.py",
+          "testFile": "matching_brackets_test.py",
+          "uuid": "45229a7c-6703-4240-8287-16645881a043"
+        },
+        "cpp17": {
+          "repository": "xcpp",
+          "sha": "8d139cb04c7463722ae1f233099cc0bd39a71092",
+          "track": "xcpp",
+          "difficulty": null,
+          "concepts": [],
+          "starterPath": "exercises/practice/matching-brackets/matching_brackets.cpp",
+          "testFile": "matching_brackets_test.cpp",
+          "uuid": "4a517292-3472-40f2-b4b8-5c8c25219ea5"
+        }
+      },
+      "status": "playable",
+      "adapterId": "string-to-bracket-balance",
+      "review": {
+        "instructions": {
+          "status": "approved",
+          "sourceName": "Ginna Baker",
+          "sourceUrl": "https://github.com/exercism/problem-specifications/blob/7b49ec415e9169cce4aa0206d2b51ce66d98b9aa/exercises/matching-brackets/metadata.toml",
+          "license": "MIT",
+          "licenseUrl": "https://github.com/exercism/problem-specifications/blob/7b49ec415e9169cce4aa0206d2b51ce66d98b9aa/LICENSE"
+        },
+        "tests": {
+          "status": "approved",
+          "sourceUrl": "https://github.com/exercism/problem-specifications/blob/7b49ec415e9169cce4aa0206d2b51ce66d98b9aa/exercises/matching-brackets/canonical-data.json",
+          "license": "MIT",
+          "licenseUrl": "https://github.com/exercism/problem-specifications/blob/7b49ec415e9169cce4aa0206d2b51ce66d98b9aa/LICENSE"
+        },
+        "adapters": {
+          "status": "playable",
+          "verifiedLanguages": [
+            "python3",
+            "cpp17"
+          ],
+          "verificationNote": "Full canonical suite passed against Judge0 and through the submission API."
+        }
+      }
+    },
+    "sublist": {
+      "slug": "sublist",
+      "title": "Sublist",
+      "metadataSourceName": null,
+      "metadataSourceUrl": null,
+      "sourceName": "Exercism problem specifications",
+      "sourceUrl": "https://github.com/exercism/problem-specifications/tree/7b49ec415e9169cce4aa0206d2b51ce66d98b9aa/exercises/sublist",
+      "statementLicense": "MIT",
+      "statementLicenseUrl": "https://github.com/exercism/problem-specifications/blob/7b49ec415e9169cce4aa0206d2b51ce66d98b9aa/LICENSE",
+      "originalStatement": "Given two ordered lists of integers, classify their relationship. Return equal when both lists contain the same values in the same order; sublist when the first list occurs consecutively in the second; superlist when the second occurs consecutively in the first; otherwise return unequal. An empty list is a sublist of every list, including another empty list.",
+      "publicExampleUuid": "7ed2bfb2-922b-4363-ae75-f3a05e8274f5",
+      "statementChanges": "This CodeTrail statement is newly written from the public exercise contract. Canonical case data is reused from the pinned Exercism problem-specifications repository under its MIT license.",
+      "tracks": {
+        "python3": {
+          "repository": "python",
+          "sha": "6105f6d9d3ef66ce3d5c8f529d2882af3d76b706",
+          "track": "python",
+          "difficulty": null,
+          "concepts": [],
+          "starterPath": "exercises/practice/sublist/sublist.py",
+          "testFile": "sublist_test.py",
+          "uuid": "cc5eb848-09bc-458c-8fb6-3a17687cb4eb"
+        },
+        "cpp17": {
+          "repository": "xcpp",
+          "sha": "8d139cb04c7463722ae1f233099cc0bd39a71092",
+          "track": "xcpp",
+          "difficulty": null,
+          "concepts": [],
+          "starterPath": "exercises/practice/sublist/sublist.cpp",
+          "testFile": "sublist_test.cpp",
+          "uuid": "801cb315-91d6-48e6-92f4-36423a89d4e1"
+        }
+      },
+      "status": "playable",
+      "adapterId": "two-int-lists-to-relation",
+      "review": {
+        "instructions": {
+          "status": "approved",
+          "sourceName": "Exercism problem specifications",
+          "sourceUrl": "https://github.com/exercism/problem-specifications/tree/7b49ec415e9169cce4aa0206d2b51ce66d98b9aa/exercises/sublist",
+          "license": "CodeTrail original",
+          "licenseUrl": ""
+        },
+        "tests": {
+          "status": "approved",
+          "sourceUrl": "https://github.com/exercism/problem-specifications/blob/7b49ec415e9169cce4aa0206d2b51ce66d98b9aa/exercises/sublist/canonical-data.json",
+          "license": "MIT",
+          "licenseUrl": "https://github.com/exercism/problem-specifications/blob/7b49ec415e9169cce4aa0206d2b51ce66d98b9aa/LICENSE"
+        },
+        "adapters": {
+          "status": "playable",
+          "verifiedLanguages": [
+            "python3",
+            "cpp17"
+          ],
+          "verificationNote": "Full canonical suite passed against Judge0 and through the submission API."
+        }
+      }
+    },
+    "all-your-base": {
+      "slug": "all-your-base",
+      "title": "All Your Base",
+      "metadataSourceName": null,
+      "metadataSourceUrl": null,
+      "sourceName": "Exercism problem specifications",
+      "sourceUrl": "https://github.com/exercism/problem-specifications/tree/7b49ec415e9169cce4aa0206d2b51ce66d98b9aa/exercises/all-your-base",
+      "statementLicense": "MIT",
+      "statementLicenseUrl": "https://github.com/exercism/problem-specifications/blob/7b49ec415e9169cce4aa0206d2b51ce66d98b9aa/LICENSE",
+      "statementPath": "instructions.md",
+      "publicExampleUuid": "5ce422f9-7a4b-4f44-ad29-49c67cb32d2c",
+      "statementChanges": "Instructions are reused from the pinned Exercism problem-specifications repository under its verified MIT license.",
+      "tracks": {
+        "python3": {
+          "repository": "python",
+          "sha": "6105f6d9d3ef66ce3d5c8f529d2882af3d76b706",
+          "track": "python",
+          "difficulty": 4,
+          "concepts": [],
+          "starterPath": "exercises/practice/all-your-base/all_your_base.py",
+          "testFile": "all_your_base_test.py",
+          "uuid": "a2ff75f9-8b2c-4c4b-975d-913711def9ab"
+        },
+        "cpp17": {
+          "repository": "xcpp",
+          "sha": "8d139cb04c7463722ae1f233099cc0bd39a71092",
+          "track": "xcpp",
+          "difficulty": 4,
+          "concepts": [
+            "algorithms",
+            "integers",
+            "loops",
+            "math"
+          ],
+          "starterPath": "exercises/practice/all-your-base/all_your_base.cpp",
+          "testFile": "all_your_base_test.cpp",
+          "uuid": "5a839eb7-cc4b-48eb-bd04-57ba6e77eae8"
+        }
+      },
+      "status": "playable",
+      "adapterId": "integer-base-reencoding",
+      "review": {
+        "instructions": {
+          "status": "approved",
+          "sourceName": "Exercism problem specifications",
+          "sourceUrl": "https://github.com/exercism/problem-specifications/blob/7b49ec415e9169cce4aa0206d2b51ce66d98b9aa/exercises/all-your-base/instructions.md",
+          "license": "MIT",
+          "licenseUrl": "https://github.com/exercism/problem-specifications/blob/7b49ec415e9169cce4aa0206d2b51ce66d98b9aa/LICENSE"
+        },
+        "tests": {
+          "status": "approved",
+          "sourceUrl": "https://github.com/exercism/problem-specifications/blob/7b49ec415e9169cce4aa0206d2b51ce66d98b9aa/exercises/all-your-base/canonical-data.json",
+          "license": "MIT",
+          "licenseUrl": "https://github.com/exercism/problem-specifications/blob/7b49ec415e9169cce4aa0206d2b51ce66d98b9aa/LICENSE"
+        },
+        "adapters": {
+          "status": "playable",
+          "verifiedLanguages": [
+            "python3",
+            "cpp17"
+          ],
+          "verificationNote": "Pinned starter loaded; public sample and complete track-selected canonical suite passed through Judge0 and the CodeTrail APIs. Submission history was saved.",
+          "testResults": {
+            "python3": {
+              "sample": "1/1",
+              "fullSubmission": "21/21",
+              "verdict": "accepted",
+              "historySaved": true
+            },
+            "cpp17": {
+              "sample": "1/1",
+              "fullSubmission": "21/21",
+              "verdict": "accepted",
+              "historySaved": true
+            }
+          }
+        }
+      }
+    },
+    "flower-field": {
+      "slug": "flower-field",
+      "title": "Flower Field",
+      "metadataSourceName": null,
+      "metadataSourceUrl": null,
+      "sourceName": "Exercism problem specifications",
+      "sourceUrl": "https://github.com/exercism/problem-specifications/tree/7b49ec415e9169cce4aa0206d2b51ce66d98b9aa/exercises/flower-field",
+      "statementLicense": "MIT",
+      "statementLicenseUrl": "https://github.com/exercism/problem-specifications/blob/7b49ec415e9169cce4aa0206d2b51ce66d98b9aa/LICENSE",
+      "statementPath": "instructions.md",
+      "publicExampleUuid": "237ff487-467a-47e1-9b01-8a891844f86c",
+      "statementChanges": "Instructions are reused from the pinned Exercism problem-specifications repository under its verified MIT license.",
+      "tracks": {
+        "python3": {
+          "repository": "python",
+          "sha": "6105f6d9d3ef66ce3d5c8f529d2882af3d76b706",
+          "track": "python",
+          "difficulty": 4,
+          "concepts": [],
+          "starterPath": "exercises/practice/flower-field/flower_field.py",
+          "testFile": "flower_field_test.py",
+          "uuid": "0c2751c1-5d2f-499a-81b8-226e5092ea88"
+        },
+        "cpp17": {
+          "repository": "xcpp",
+          "sha": "8d139cb04c7463722ae1f233099cc0bd39a71092",
+          "track": "xcpp",
+          "difficulty": 5,
+          "concepts": [],
+          "starterPath": "exercises/practice/flower-field/flower_field.cpp",
+          "testFile": "flower_field_test.cpp",
+          "uuid": "d17d040b-b214-4079-ad3e-b518f776aeeb"
+        }
+      },
+      "status": "playable",
+      "adapterId": "string-grid-transform-flower",
+      "review": {
+        "instructions": {
+          "status": "approved",
+          "sourceName": "Exercism problem specifications",
+          "sourceUrl": "https://github.com/exercism/problem-specifications/blob/7b49ec415e9169cce4aa0206d2b51ce66d98b9aa/exercises/flower-field/instructions.md",
+          "license": "MIT",
+          "licenseUrl": "https://github.com/exercism/problem-specifications/blob/7b49ec415e9169cce4aa0206d2b51ce66d98b9aa/LICENSE"
+        },
+        "tests": {
+          "status": "approved",
+          "sourceUrl": "https://github.com/exercism/problem-specifications/blob/7b49ec415e9169cce4aa0206d2b51ce66d98b9aa/exercises/flower-field/canonical-data.json",
+          "license": "MIT",
+          "licenseUrl": "https://github.com/exercism/problem-specifications/blob/7b49ec415e9169cce4aa0206d2b51ce66d98b9aa/LICENSE"
+        },
+        "adapters": {
+          "status": "playable",
+          "verifiedLanguages": [
+            "python3",
+            "cpp17"
+          ],
+          "verificationNote": "Pinned starter loaded; public sample and complete track-selected canonical suite passed through Judge0 and the CodeTrail APIs. Submission history was saved.",
+          "testResults": {
+            "python3": {
+              "sample": "1/1",
+              "fullSubmission": "13/13",
+              "verdict": "accepted",
+              "historySaved": true
+            },
+            "cpp17": {
+              "sample": "1/1",
+              "fullSubmission": "12/12",
+              "verdict": "accepted",
+              "historySaved": true
+            }
+          }
+        }
+      }
+    },
+    "minesweeper": {
+      "slug": "minesweeper",
+      "title": "Minesweeper",
+      "metadataSourceName": null,
+      "metadataSourceUrl": null,
+      "sourceName": "Exercism problem specifications",
+      "sourceUrl": "https://github.com/exercism/problem-specifications/tree/7b49ec415e9169cce4aa0206d2b51ce66d98b9aa/exercises/minesweeper",
+      "statementLicense": "MIT",
+      "statementLicenseUrl": "https://github.com/exercism/problem-specifications/blob/7b49ec415e9169cce4aa0206d2b51ce66d98b9aa/LICENSE",
+      "statementPath": "instructions.md",
+      "publicExampleUuid": "0c5ec4bd-dea7-4138-8651-1203e1cb9f44",
+      "statementChanges": "Instructions are reused from the pinned Exercism problem-specifications repository under its verified MIT license.",
+      "tracks": {
+        "python3": {
+          "repository": "python",
+          "sha": "6105f6d9d3ef66ce3d5c8f529d2882af3d76b706",
+          "track": "python",
+          "difficulty": 4,
+          "concepts": [],
+          "starterPath": "exercises/practice/minesweeper/minesweeper.py",
+          "testFile": "minesweeper_test.py",
+          "uuid": "7e768b54-4591-4a30-9ddb-66ca13400ca3"
+        },
+        "cpp17": {
+          "repository": "xcpp",
+          "sha": "8d139cb04c7463722ae1f233099cc0bd39a71092",
+          "track": "xcpp",
+          "difficulty": 5,
+          "concepts": [],
+          "starterPath": "exercises/practice/minesweeper/minesweeper.cpp",
+          "testFile": "minesweeper_test.cpp",
+          "uuid": "3753a72a-78b7-429f-b79a-f68d55a00387"
+        }
+      },
+      "status": "playable",
+      "adapterId": "string-grid-transform-minesweeper",
+      "review": {
+        "instructions": {
+          "status": "approved",
+          "sourceName": "Exercism problem specifications",
+          "sourceUrl": "https://github.com/exercism/problem-specifications/blob/7b49ec415e9169cce4aa0206d2b51ce66d98b9aa/exercises/minesweeper/instructions.md",
+          "license": "MIT",
+          "licenseUrl": "https://github.com/exercism/problem-specifications/blob/7b49ec415e9169cce4aa0206d2b51ce66d98b9aa/LICENSE"
+        },
+        "tests": {
+          "status": "approved",
+          "sourceUrl": "https://github.com/exercism/problem-specifications/blob/7b49ec415e9169cce4aa0206d2b51ce66d98b9aa/exercises/minesweeper/canonical-data.json",
+          "license": "MIT",
+          "licenseUrl": "https://github.com/exercism/problem-specifications/blob/7b49ec415e9169cce4aa0206d2b51ce66d98b9aa/LICENSE"
+        },
+        "adapters": {
+          "status": "playable",
+          "verifiedLanguages": [
+            "python3",
+            "cpp17"
+          ],
+          "verificationNote": "Pinned starter loaded; public sample and complete track-selected canonical suite passed through Judge0 and the CodeTrail APIs. Submission history was saved.",
+          "testResults": {
+            "python3": {
+              "sample": "1/1",
+              "fullSubmission": "12/12",
+              "verdict": "accepted",
+              "historySaved": true
+            },
+            "cpp17": {
+              "sample": "1/1",
+              "fullSubmission": "12/12",
+              "verdict": "accepted",
+              "historySaved": true
+            }
+          }
+        }
+      }
+    },
+    "dominoes": {
+      "slug": "dominoes",
+      "title": "Dominoes",
+      "metadataSourceName": null,
+      "metadataSourceUrl": null,
+      "sourceName": "Exercism problem specifications",
+      "sourceUrl": "https://github.com/exercism/problem-specifications/tree/7b49ec415e9169cce4aa0206d2b51ce66d98b9aa/exercises/dominoes",
+      "statementLicense": "MIT",
+      "statementLicenseUrl": "https://github.com/exercism/problem-specifications/blob/7b49ec415e9169cce4aa0206d2b51ce66d98b9aa/LICENSE",
+      "statementPath": "instructions.md",
+      "publicExampleUuid": "31a673f2-5e54-49fe-bd79-1c1dae476c9c",
+      "statementChanges": "Instructions are reused from the pinned Exercism problem-specifications repository under its verified MIT license.",
+      "tracks": {
+        "python3": {
+          "repository": "python",
+          "sha": "6105f6d9d3ef66ce3d5c8f529d2882af3d76b706",
+          "track": "python",
+          "difficulty": 7,
+          "concepts": [],
+          "starterPath": "exercises/practice/dominoes/dominoes.py",
+          "testFile": "dominoes_test.py",
+          "uuid": "54995590-65eb-4178-a527-0d7b1526a843"
+        }
+      },
+      "status": "playable",
+      "adapterId": "domino-chain-check",
+      "review": {
+        "instructions": {
+          "status": "approved",
+          "sourceName": "Exercism problem specifications",
+          "sourceUrl": "https://github.com/exercism/problem-specifications/blob/7b49ec415e9169cce4aa0206d2b51ce66d98b9aa/exercises/dominoes/instructions.md",
+          "license": "MIT",
+          "licenseUrl": "https://github.com/exercism/problem-specifications/blob/7b49ec415e9169cce4aa0206d2b51ce66d98b9aa/LICENSE"
+        },
+        "tests": {
+          "status": "approved",
+          "sourceUrl": "https://github.com/exercism/problem-specifications/blob/7b49ec415e9169cce4aa0206d2b51ce66d98b9aa/exercises/dominoes/canonical-data.json",
+          "license": "MIT",
+          "licenseUrl": "https://github.com/exercism/problem-specifications/blob/7b49ec415e9169cce4aa0206d2b51ce66d98b9aa/LICENSE"
+        },
+        "adapters": {
+          "status": "playable",
+          "verifiedLanguages": [
+            "python3"
+          ],
+          "verificationNote": "Pinned starter loaded; public sample and complete track-selected canonical suite passed through Judge0 and the CodeTrail APIs. Submission history was saved.",
+          "testResults": {
+            "python3": {
+              "sample": "1/1",
+              "fullSubmission": "13/13",
+              "verdict": "accepted",
+              "historySaved": true
+            }
+          }
+        }
+      }
+    }
+  },
+  "problemSpecificationsSha": "7b49ec415e9169cce4aa0206d2b51ce66d98b9aa",
+  "adapters": {
+    "binary-search-index": {
+      "inputContract": "sorted integer array and integer target",
+      "resultContract": "integer index; missing target raises the reviewed value-not-found exception",
+      "pythonFunction": "find",
+      "cppNamespace": "binary_search",
+      "cppFunction": "find",
+      "cppStarter": "#include <cstddef>\n#include <stdexcept>\n#include <vector>\n\nnamespace binary_search {\nstd::size_t find(const std::vector<int>& data, int value) {\n    // Implement the search. Throw std::domain_error when absent.\n}\n}",
+      "pythonException": "ValueError",
+      "cppException": "std::domain_error"
+    },
+    "integer-to-prime-list": {
+      "inputContract": "integer limit",
+      "resultContract": "list of integers",
+      "pythonFunction": "primes",
+      "cppNamespace": "sieve",
+      "cppFunction": "primes",
+      "cppStarter": "#include <vector>\n\nnamespace sieve {\nstd::vector<int> primes(int limit) {\n    // Return all primes less than or equal to limit.\n}\n}"
+    },
+    "string-to-bracket-balance": {
+      "inputContract": "string",
+      "resultContract": "boolean",
+      "pythonFunction": "is_paired",
+      "cppNamespace": "matching_brackets",
+      "cppFunction": "check",
+      "cppStarter": "#include <string>\n\nnamespace matching_brackets {\nbool check(const std::string& input_string) {\n    // Ignore all non-bracket characters.\n}\n}"
+    },
+    "two-int-lists-to-relation": {
+      "inputContract": "pair of integer lists",
+      "resultContract": "equal | sublist | superlist | unequal",
+      "pythonFunction": "sublist",
+      "cppNamespace": "sublist",
+      "cppFunction": "sublist",
+      "pythonConstants": {
+        "sublist": "SUBLIST",
+        "superlist": "SUPERLIST",
+        "equal": "EQUAL",
+        "unequal": "UNEQUAL"
+      },
+      "cppEnumType": "sublist::List_comparison",
+      "cppStarter": "#include <vector>\n\nnamespace sublist {\nenum class List_comparison { equal, sublist, superlist, unequal };\nList_comparison sublist(const std::vector<int>& list_one, const std::vector<int>& list_two) {\n    // Classify the ordered, consecutive relationship between the lists.\n}\n}",
+      "cppEnumValues": {
+        "equal": "equal",
+        "sublist": "sublist",
+        "superlist": "superlist",
+        "unequal": "unequal"
+      }
+    },
+    "integer-base-reencoding": {
+      "strategy": "integer-base-reencoding",
+      "inputContract": "signed input base, signed digit sequence, and signed output base",
+      "resultContract": "least-significant-first integer digit array; invalid bases and digits raise the track ValueError/invalid_argument",
+      "pythonFunction": "rebase",
+      "pythonException": "ValueError",
+      "cppNamespace": "all_your_base",
+      "cppFunction": "rebase",
+      "cppException": "std::invalid_argument",
+      "cppInputType": "std::vector<int>",
+      "cppResultType": "std::vector<unsigned int>",
+      "cppStarter": "#include <stdexcept>\n#include <vector>\n\nnamespace all_your_base {\nstd::vector<unsigned int> rebase(int input_base, const std::vector<int>& digits, int output_base) {\n    // Convert the most-significant-first digit sequence between bases.\n    throw std::invalid_argument(\"not implemented\");\n}\n}"
+    },
+    "string-grid-transform-flower": {
+      "strategy": "string-grid-transform",
+      "inputContract": "rectangular garden rows as strings",
+      "resultContract": "annotated garden rows as strings",
+      "pythonFunction": "annotate",
+      "inputParameter": "garden",
+      "cppNamespace": "flower_field",
+      "cppFunction": "annotate",
+      "cppInputType": "std::vector<std::string>",
+      "cppResultType": "std::vector<std::string>",
+      "cppStarter": "#include <string>\n#include <vector>\n\nnamespace flower_field {\nstd::vector<std::string> annotate(const std::vector<std::string>& garden) {\n    // Return a copy with adjacent flower counts in empty cells.\n}\n}"
+    },
+    "string-grid-transform-minesweeper": {
+      "strategy": "string-grid-transform",
+      "inputContract": "minefield rows as strings",
+      "resultContract": "annotated minefield rows as strings",
+      "pythonFunction": "annotate",
+      "inputParameter": "minefield",
+      "cppNamespace": "minesweeper",
+      "cppFunction": "annotate",
+      "cppInputType": "std::vector<std::string>",
+      "cppResultType": "std::vector<std::string>",
+      "cppStarter": "#include <string>\n#include <vector>\n\nnamespace minesweeper {\nstd::vector<std::string> annotate(const std::vector<std::string>& minefield) {\n    // Return a copy with adjacent mine counts in empty cells.\n}\n}"
+    },
+    "domino-chain-check": {
+      "strategy": "pair-list-predicate",
+      "inputContract": "unordered list of domino endpoint pairs",
+      "resultContract": "boolean indicating whether every domino can form one closed chain",
+      "pythonFunction": "can_chain",
+      "cppNamespace": "dominoes",
+      "cppFunction": "can_chain"
+    }
+  }
+}

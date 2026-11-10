@@ -18,7 +18,7 @@ function FieldIcon({ kind }: { kind: "email" | "password" | "name" }) {
   return <><circle cx="12" cy="8" r="4" /><path d="M5 21v-2a7 7 0 0 1 14 0v2" /></>;
 }
 
-export function AuthForm({ mode, googleEnabled }: { mode: "login" | "register"; googleEnabled: boolean }) {
+export function AuthForm({ mode, googleEnabled, returnTo }: { mode: "login" | "register"; googleEnabled: boolean; returnTo?: string }) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -57,7 +57,7 @@ export function AuthForm({ mode, googleEnabled }: { mode: "login" | "register"; 
         }
         return;
       }
-      router.replace("/dashboard");
+      router.replace(returnTo ?? "/dashboard");
       router.refresh();
     } catch {
       setError("Authentication could not be reached. Check the server configuration and try again.");
@@ -70,7 +70,7 @@ export function AuthForm({ mode, googleEnabled }: { mode: "login" | "register"; 
     setError(null);
     setGoogleBusy(true);
     try {
-      const result = await authClient.signIn.social({ provider: "google", callbackURL: "/dashboard" });
+      const result = await authClient.signIn.social({ provider: "google", callbackURL: returnTo ?? "/dashboard" });
       if (result.error) setError("Google sign-in could not be started. Please try again or use email and password.");
     } catch {
       setError("Google sign-in could not be reached. Check the server configuration and try again.");

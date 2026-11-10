@@ -1,0 +1,176 @@
+﻿drizzle/
+    meta/
+        _journal.json
+        0000_snapshot.json
+        0001_snapshot.json
+        0002_snapshot.json
+        0003_snapshot.json
+    0000_first_eternity.sql
+    0001_hard_thaddeus_ross.sql
+    0002_add_ai_tutor.sql
+    0003_daffy_captain_midlands.sql
+public/
+    file.svg
+    globe.svg
+    next.svg
+    vercel.svg
+    window.svg
+scripts/
+    drizzle.mjs
+    exercism-audit.mjs
+    exercism-discover.mjs
+    verify-problems.cjs
+src/
+    app/
+        (app)/
+            algorithms/
+                [slug]/
+                    page.tsx
+                algorithm-catalogue.tsx
+                page.tsx
+            analytics/
+                page.tsx
+            dashboard/
+                page.tsx
+            problems/
+                [slug]/
+                    page.tsx
+                    problem-statement.tsx
+                    problem-workspace.tsx
+                codeforces/
+                    [contestId]/
+                        [index]/
+                exercism/
+                    [slug]/
+                        page.tsx
+                page.tsx
+                problem-list.tsx
+            profile/
+                page.tsx
+            settings/
+                page.tsx
+            submissions/
+                page.tsx
+                submissions-client.tsx
+            tutor/
+                layout.tsx
+                page.tsx
+            layout.tsx
+        (marketing)/
+            login/
+                page.tsx
+            register/
+                page.tsx
+            layout.tsx
+            page.tsx
+        api/
+            auth/
+                [...all]/
+                    route.ts
+            problems/
+                [slug]/
+                    submissions/
+                        route.ts
+                route.ts
+            run-samples/
+                route.ts
+            submissions/
+                [id]/
+                    route.ts
+                route.ts
+            tutor/
+                chat/
+                    route.ts
+                consent/
+                    route.ts
+                conversations/
+                    [id]/
+                        messages/
+                            [messageId]/
+                                cancel/
+                                    route.ts
+                        route.ts
+                    route.ts
+        favicon.ico
+        globals.css
+        layout.tsx
+    components/
+        problems/
+            exercise-markdown.tsx
+        tutor/
+            tutor-chat.tsx
+        account-preferences.tsx
+        algorithm-visualizer.tsx
+        application-shell.tsx
+        auth-form.tsx
+        auth-left-panel.tsx
+        brand-mark.tsx
+        dashboard-overview.tsx
+        google-icon.tsx
+        header-controls.tsx
+        marketing-layout-shell.tsx
+        navigation-icon.tsx
+        roadmap-placeholder.tsx
+        theme-toggle.tsx
+        tutor-markdown.tsx
+    lib/
+        algorithms/
+            binary-search.ts
+            bubble-sort.ts
+            catalog.ts
+            counting-sort.ts
+            execution.ts
+            heap-sort.ts
+            insertion-sort.ts
+            linear-search.ts
+            merge-sort.ts
+            quick-sort.ts
+            radix-sort.ts
+            selection-sort.ts
+            source-code.ts
+        db/
+            auth-schema.ts
+            index.ts
+            schema.ts
+        exercism/
+            audit-report.json
+            discovery-snapshot.json
+            review-manifest.json
+        tutor/
+            policy.ts
+            provider.ts
+            server.ts
+        analytics.ts
+        auth.ts
+        auth-client.ts
+        auth-schema-config.ts
+        auth-server.ts
+        exercism.ts
+        expanded-array-problems.ts
+        expanded-array-public.ts
+        expanded-graph-execution.ts
+        expanded-graph-public.ts
+        expanded-structural-cases.ts
+        expanded-structural-execution.ts
+        expanded-structural-public.ts
+        function-test-cases.ts
+        local-preferences.ts
+        problem-reference-solutions.ts
+        problems.ts
+        progress.ts
+        structural-execution-adapter.ts
+        submission-runner.ts
+.env.example
+.env.local
+.gitignore
+AGENTS.md
+drizzle.config.ts
+eslint.config.mjs
+next.config.ts
+next-env.d.ts
+package.json
+package-lock.json
+postcss.config.mjs
+README.md
+tsconfig.json
+tsconfig.tsbuildinfo

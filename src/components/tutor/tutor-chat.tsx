@@ -1,36 +1,17 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { memo, useEffect, useRef, useState, type FormEvent } from "react";
 import { internalProblems, type SupportedLanguage } from "@/lib/problems";
 import { BrandMark } from "@/components/brand-mark";
+import { TutorAnswerCopy, TutorMarkdown } from "@/components/tutor-markdown";
 
 type MessageStatus = "complete" | "streaming" | "failed" | "interrupted" | "incomplete" | "cancelled" | "cancel_requested";
 type ChatMessage = { id: string; role: "user" | "assistant"; content: string; status?: MessageStatus; createdAt?: string };
 type Conversation = { id: string; title: string; updatedAt?: string };
 type TutorContext = { problemSlug: string; language: SupportedLanguage; includeEditorCode: boolean; editorCode: string; includeLatestSubmission: boolean; errorText: string };
+type TutorChatProps = { variant?: "full" | "floating"; workspaceProblemSlug?: string; workspaceProblemTitle?: string; workspaceLanguage?: SupportedLanguage; getEditorCode?: () => string; workspaceErrorText?: string; open?: boolean; onClose?: () => void };
 
-function CodeCopy({ code }: { code: string }) {
-  const [copied, setCopied] = useState(false);
-  return <button className="border border-line px-2 py-1 text-[11px] text-muted hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent" onClick={async () => {
-    try { await navigator.clipboard.writeText(code); setCopied(true); window.setTimeout(() => setCopied(false), 1500); } catch { setCopied(false); }
-  }} type="button">{copied ? "Copied" : "Copy code"}</button>;
-}
-
-function formatMessage(content: string): ReactNode[] {
-  const output: ReactNode[] = [];
-  const pattern = /```([^\n`]*)\n([\s\S]*?)(?:```|$)/g;
-  let last = 0;
-  let match: RegExpExecArray | null;
-  while ((match = pattern.exec(content))) {
-    if (match.index > last) output.push(<p className="whitespace-pre-wrap break-words text-sm leading-6 text-foreground" key={`text-${last}`}>{content.slice(last, match.index)}</p>);
-    output.push(<div className="min-w-0 overflow-hidden border border-line bg-surface" key={`code-${match.index}`}><div className="flex items-center justify-between border-b border-line px-3 py-2"><span className="text-[11px] text-muted">{match[1] || "Code"}</span><CodeCopy code={match[2]} /></div><pre className="max-w-full overflow-x-auto p-3 font-mono text-xs leading-5 text-foreground"><code>{match[2]}</code></pre></div>);
-    last = match.index + match[0].length;
-  }
-  if (last < content.length) output.push(<p className="whitespace-pre-wrap break-words text-sm leading-6 text-foreground" key={`text-${last}`}>{content.slice(last)}</p>);
-  return output;
-}
-
-export default function TutorChat() {
+function TutorChat({ variant = "full", workspaceProblemSlug, workspaceProblemTitle, workspaceLanguage, getEditorCode, workspaceErrorText = "", open = true, onClose }: TutorChatProps) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeId, setActiveId] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -47,7 +28,7 @@ export default function TutorChat() {
   const [mobileHistoryOpen, setMobileHistoryOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [contextOpen, setContextOpen] = useState(false);
-  const [context, setContext] = useState<TutorContext>({ problemSlug: "", language: "cpp17", includeEditorCode: false, editorCode: "", includeLatestSubmission: false, errorText: "" });
+  const [context, setContext] = useState<TutorContext>(() => ({ problemSlug: workspaceProblemSlug ?? "", language: workspaceLanguage ?? "cpp17", includeEditorCode: false, editorCode: "", includeLatestSubmission: false, errorText: workspaceErrorText }));
   const abortRef = useRef<AbortController | null>(null);
   const tempMessageCounter = useRef(0);
   const skipNextConversationLoadRef = useRef("");
@@ -56,6 +37,7 @@ export default function TutorChat() {
   const shouldAutoScrollRef = useRef(true);
   const userStoppedRef = useRef(false);
   const activeRequestRef = useRef<{ conversationId: string; assistantId: string } | null>(null);
+  const floatingInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   async function refreshConversations(selectId?: string) {
     const response = await fetch("/api/tutor/conversations", { cache: "no-store" });
@@ -66,7 +48,7 @@ export default function TutorChat() {
     setConfigured(body.configured);
     setDailyLimit(body.dailyLimit);
     setRequestsUsed(body.requestsUsed);
-    const target = selectId ?? activeId ?? body.conversations[0]?.id ?? "";
+    const target = selectId || activeId || (variant === "full" ? body.conversations[0]?.id ?? "" : "");
     if (target) setActiveId(target);
   }
 
@@ -76,6 +58,7 @@ export default function TutorChat() {
       catch (reason) { setError(reason instanceof Error ? reason.message : "Could not load the AI Tutor."); }
       finally { setLoading(false); }
       try {
+        if (variant === "floating") return;
         const pending = sessionStorage.getItem("codetrail-tutor-context");
         if (pending) {
           const saved = JSON.parse(pending) as { problemSlug?: string; language?: SupportedLanguage; editorCode?: string };
@@ -89,6 +72,10 @@ export default function TutorChat() {
     // Initial bootstrap only; conversation changes are handled by the dedicated effect.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (variant === "floating" && open) window.setTimeout(() => floatingInputRef.current?.focus(), 0);
+  }, [variant, open]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void (async () => {
@@ -192,13 +179,24 @@ export default function TutorChat() {
       }
       const abortController = new AbortController();
       abortRef.current = abortController;
+      const requestContext = variant === "floating" && workspaceProblemSlug && workspaceLanguage && getEditorCode
+        ? {
+            problemSlug: workspaceProblemSlug,
+            language: workspaceLanguage,
+            includeEditorCode: context.includeEditorCode,
+            editorCode: context.includeEditorCode ? getEditorCode() : undefined,
+            includeLatestSubmission: false,
+            includeLatestRun: true,
+            errorText: workspaceErrorText.trim().slice(0, 2_000) || undefined,
+          }
+        : {
+            problemSlug: context.problemSlug || undefined, language: context.problemSlug ? context.language : undefined,
+            includeEditorCode: context.includeEditorCode, editorCode: context.includeEditorCode ? context.editorCode : undefined,
+            includeLatestSubmission: context.includeLatestSubmission, errorText: context.errorText.trim() || undefined,
+          };
       const response = await fetch("/api/tutor/chat", { method: "POST", headers: { "Content-Type": "application/json" }, signal: abortController.signal, body: JSON.stringify({
         conversationId, message: text.trim(), hintLevel,
-        context: {
-          problemSlug: context.problemSlug || undefined, language: context.problemSlug ? context.language : undefined,
-          includeEditorCode: context.includeEditorCode, editorCode: context.includeEditorCode ? context.editorCode : undefined,
-          includeLatestSubmission: context.includeLatestSubmission, errorText: context.errorText.trim() || undefined,
-        },
+        context: requestContext,
       }) });
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
@@ -257,6 +255,28 @@ export default function TutorChat() {
   function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); void sendMessage(); }
   const selectedProblem = internalProblems.find((problem) => problem.slug === context.problemSlug);
 
+  if (variant === "floating") {
+    const diagnostic = workspaceErrorText.trim();
+    return <section aria-labelledby="floating-tutor-title" aria-modal="false" className={`fixed bottom-20 right-3 z-[1000] flex h-[min(34rem,65dvh)] w-[min(25rem,calc(100vw-1.5rem))] flex-col overflow-hidden border border-line-strong bg-panel shadow-2xl sm:bottom-24 sm:right-5 sm:h-[min(38rem,calc(100dvh-6rem))] ${open ? "" : "hidden"}`} hidden={!open} onKeyDown={(event) => { if (event.key === "Escape") { onClose?.(); } }} role="dialog">
+      <header className="flex shrink-0 items-center justify-between gap-3 border-b border-line bg-surface px-4 py-3">
+        <div className="min-w-0"><h2 className="truncate text-sm font-semibold text-foreground" id="floating-tutor-title">CodeTrail Tutor</h2><p className="mt-0.5 truncate text-[11px] text-muted">{workspaceProblemTitle} · {workspaceLanguage === "python3" ? "Python 3" : "C++17"}</p></div>
+        <button aria-label="Close AI Tutor" className="grid size-8 shrink-0 place-items-center border border-line text-muted hover:bg-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent" onClick={() => onClose?.()} type="button">×</button>
+      </header>
+      {loading ? <div className="grid min-h-0 flex-1 place-items-center text-xs text-muted" role="status">Loading AI Tutor…</div> : !consented ? <div className="min-h-0 flex-1 overflow-y-auto p-4"><p className="text-sm font-semibold text-foreground">Before you start</p><div className="mt-2 space-y-2 text-xs leading-5 text-muted"><p>Your messages are saved in your CodeTrail account and sent to Google Gemini to generate replies. Do not include sensitive, confidential, or personal information.</p><p>Google may use prompts and responses from unpaid Gemini API usage to improve its products; human reviewers may process them. Google, not CodeTrail, controls its handling of submitted content. Your conversation is not private from the AI provider. <a className="text-accent underline" href="https://ai.google.dev/gemini-api/terms" rel="noreferrer" target="_blank">Read Google’s Gemini API terms</a>.</p><p>This Tutor is available only to people 18 or older and uses the configured Gemini model only.</p></div><label className="mt-4 flex items-start gap-2 text-xs leading-5 text-foreground"><input checked={consentChecked} className="mt-1 accent-[var(--accent)]" onChange={(event) => setConsentChecked(event.target.checked)} type="checkbox" /><span>I confirm that I am at least 18 years old and understand and agree to the data-use notice above.</span></label><button className="mt-3 h-9 border border-accent bg-accent px-3 text-xs font-semibold text-accent-foreground disabled:opacity-50" disabled={!consentChecked || consentSaving} onClick={() => void acceptNotice()} type="button">{consentSaving ? "Saving…" : "Continue"}</button>{error && <p className="mt-3 text-xs text-amber-500" role="alert">{error}</p>}</div> : <>
+        <div className="shrink-0 border-b border-line px-3 py-2 text-[11px] leading-4 text-muted"><p>Attached: problem, official statement and constraints, language, latest saved run/submission summary{diagnostic ? ", and latest diagnostic output" : ""}. Test inputs and expected outputs are excluded.</p>{diagnostic && <details className="mt-1"><summary className="cursor-pointer text-amber-500">Review attached diagnostic</summary><pre className="mt-1 max-h-20 overflow-auto whitespace-pre-wrap break-words font-mono text-[10px]">{diagnostic}</pre></details>}<label className="mt-2 flex items-center gap-2 text-foreground"><input checked={context.includeEditorCode} onChange={(event) => setContext((current) => ({ ...current, includeEditorCode: event.target.checked }))} type="checkbox" />Include my current editor code with each message</label></div>
+        <div ref={messageScrollRef} aria-live="polite" className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-3 py-3" onScroll={(event) => { const node = event.currentTarget; shouldAutoScrollRef.current = node.scrollHeight - node.scrollTop - node.clientHeight < 100; }}>
+          {messages.length ? <div className="mx-auto flex w-full min-w-0 max-w-3xl flex-col gap-3">{messages.map((message) => <article className={`w-fit min-w-0 max-w-full space-y-2 border p-3 ${message.role === "user" ? "ml-auto border-line-strong bg-hover" : "mr-auto border-line bg-surface"}`} key={message.id}><div className="flex min-w-0 items-center justify-between gap-2"><p className="min-w-0 break-words text-[10px] font-semibold uppercase tracking-wide text-muted">{message.role === "user" ? "You" : "Tutor"}{message.status === "streaming" ? " · Generating" : message.status === "interrupted" ? " · Interrupted" : message.status === "cancelled" ? " · Stopped" : message.status === "failed" ? " · Failed" : message.status === "incomplete" ? " · Partial" : ""}</p>{message.role === "assistant" && message.content && <TutorAnswerCopy content={message.content} />}</div>{message.content ? message.role === "assistant" ? <TutorMarkdown content={message.content} /> : <p className="min-w-0 max-w-full whitespace-pre-wrap break-words text-xs leading-5 text-foreground [overflow-wrap:anywhere]">{message.content}</p> : message.status === "streaming" ? <p className="text-xs text-muted" role="status">Thinking…</p> : null}</article>)}</div> : <div className="flex h-full min-h-24 items-center justify-center px-4 text-center"><p className="max-w-xs text-xs leading-5 text-muted">Ask about {workspaceProblemTitle ?? "this problem"}, your latest run, or a programming concept.</p></div>}
+          {error && <p className="mt-2 border border-amber-500/30 p-2 text-xs text-amber-500" role="alert">{error}</p>}
+        </div>
+        <div className="shrink-0 border-t border-line bg-surface p-3">
+          {!configured && <p className="mb-2 text-[11px] text-amber-500">AI Tutor is not configured.</p>}
+          <form onSubmit={submit}><label className="sr-only" htmlFor="floating-tutor-message">Message the CodeTrail Tutor</label><div className="flex items-end gap-2 border border-line-strong bg-panel p-1.5 focus-within:border-accent"><textarea ref={floatingInputRef} className="max-h-28 min-h-10 min-w-0 flex-1 resize-y bg-transparent px-2 py-1.5 text-xs leading-5 text-foreground outline-none placeholder:text-muted" disabled={waiting || !configured} id="floating-tutor-message" maxLength={4_000} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} placeholder="Ask about this problem…" rows={2} value={draft} /><button className="h-9 shrink-0 bg-accent px-3 text-xs font-semibold text-accent-foreground disabled:opacity-50" disabled={!draft.trim() || waiting || !configured} type="submit">Send</button>{waiting && <button aria-label="Stop response" className="h-9 shrink-0 border border-line px-2 text-xs text-foreground" onClick={() => void stopGeneration()} type="button">Stop</button>}</div></form>
+          <p className="mt-1.5 text-[10px] leading-4 text-muted">Source code is not sent unless you enable sharing. {requestsUsed}/{dailyLimit} daily requests used.</p>
+        </div>
+      </>}
+    </section>;
+  }
+
   return <section className="relative mx-auto flex h-full min-h-0 min-w-0 w-full max-w-7xl flex-1 overflow-hidden border border-line bg-panel">
     <aside aria-label="Conversation history" className={`${mobileHistoryOpen ? "absolute inset-y-0 left-0 z-30 flex w-[min(20rem,88vw)] shadow-2xl" : "hidden"} min-h-0 shrink-0 flex-col border-r border-line bg-surface md:relative md:flex ${sidebarCollapsed ? "md:w-16" : "md:w-72"} transition-[width] duration-200`}>
       <div className={`flex h-16 shrink-0 items-center border-b border-line ${sidebarCollapsed ? "justify-center px-2" : "justify-between px-4"}`}><button aria-label={sidebarCollapsed ? "Expand CodeTrail sidebar" : "Collapse CodeTrail sidebar"} className="flex min-w-0 items-center gap-3 outline-none focus-visible:ring-2 focus-visible:ring-accent" onClick={() => setSidebarCollapsed((value) => !value)} title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} type="button"><BrandMark />{!sidebarCollapsed && <span className="text-sm font-semibold text-foreground">CodeTrail</span>}</button>{!sidebarCollapsed && <button aria-label="Collapse conversation sidebar" className="hidden size-8 place-items-center text-muted hover:bg-hover md:grid" onClick={() => setSidebarCollapsed(true)} title="Collapse sidebar" type="button"><svg aria-hidden="true" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6" /></svg></button>}<button aria-label="Close conversation history" className="border border-line px-2 py-1 text-xs md:hidden" onClick={() => setMobileHistoryOpen(false)} type="button">Close</button></div>
@@ -269,8 +289,8 @@ export default function TutorChat() {
       <header className="flex items-center justify-between gap-3 border-b border-line px-4 py-4 sm:px-6"><div className="flex min-w-0 items-center gap-3"><button aria-label="Open conversation history" className="border border-line px-2.5 py-2 text-sm md:hidden" onClick={() => { setSidebarCollapsed(false); setMobileHistoryOpen(true); }} type="button">☰</button><div className="min-w-0"><p className="text-[11px] font-medium uppercase tracking-[0.18em] text-accent">Guided learning</p><h1 className="truncate text-lg font-semibold text-foreground sm:text-xl">AI Tutor</h1></div></div><span className={`hidden shrink-0 border px-2 py-1 text-[11px] sm:inline ${configured ? "border-line text-muted" : "border-amber-500/40 text-amber-500"}`}>{configured ? "Gemini · configured model" : "Service not configured"}</span></header>
 
       {!consented ? <div className="m-auto max-w-2xl p-5 sm:p-10"><div className="border border-line-strong bg-surface p-5 sm:p-7"><p className="text-xs font-medium uppercase tracking-[0.16em] text-accent">Before you start</p><h2 className="mt-3 text-xl font-semibold">AI and data-use notice</h2><div className="mt-4 space-y-3 text-sm leading-6 text-muted"><p>Your messages are saved in your CodeTrail account and sent to Google Gemini to generate replies. Do not include sensitive, confidential, or personal information.</p><p>Google may use prompts and responses from unpaid Gemini API usage to improve its products; human reviewers may process them. Google, not CodeTrail, controls its handling of submitted content. Your conversation is not private from the AI provider. <a className="text-accent underline" href="https://ai.google.dev/gemini-api/terms" rel="noreferrer" target="_blank">Read Google’s Gemini API terms</a>.</p><p>This tutor is available only to people 18 or older. CodeTrail uses the configured Gemini model only and will not switch models when quota is exhausted.</p></div><label className="mt-5 flex items-start gap-3 text-sm leading-5 text-foreground"><input checked={consentChecked} className="mt-1 accent-[var(--accent)]" onChange={(event) => setConsentChecked(event.target.checked)} type="checkbox" /><span>I confirm that I am at least 18 years old and understand and agree to the data-use notice above.</span></label><button className="mt-5 h-10 border border-accent bg-accent px-4 text-sm font-semibold text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50" disabled={!consentChecked || consentSaving} onClick={() => void acceptNotice()} type="button">{consentSaving ? "Saving…" : "Continue to AI Tutor"}</button>{error && <p className="mt-3 text-sm text-amber-500" role="alert">{error}</p>}</div></div> : <>
-        <div ref={messageScrollRef} aria-live="polite" className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-4 py-6 sm:px-6 sm:py-8" onScroll={(event) => { const node = event.currentTarget; shouldAutoScrollRef.current = node.scrollHeight - node.scrollTop - node.clientHeight < 120; }}>
-          {messages.length ? <div className="mx-auto flex w-full max-w-3xl flex-col gap-5">{messages.map((message) => <article className={`max-w-[95%] space-y-3 border p-4 sm:max-w-[90%] ${message.role === "user" ? "self-end border-line-strong bg-hover" : "self-start border-line bg-surface"}`} key={message.id}><div className="flex items-center justify-between gap-4"><p className="text-[11px] font-semibold uppercase tracking-wide text-muted">{message.role === "user" ? "You" : "CodeTrail Tutor"}{message.status === "streaming" ? " · Generating" : message.status === "interrupted" ? " · Interrupted" : message.status === "cancelled" ? " · Stopped" : message.status === "failed" ? " · Failed" : message.status === "incomplete" ? " · Partial response" : ""}</p>{message.role === "assistant" && message.content && <CodeCopy code={message.content} />}</div>{message.content ? <div className="space-y-3">{formatMessage(message.content)}</div> : message.status === "streaming" ? <p className="text-sm text-muted" role="status">Thinking…</p> : message.role === "assistant" && (message.status === "failed" || message.status === "interrupted" || message.status === "cancelled" || message.status === "incomplete") ? <p className="text-sm text-muted">This response ended before a complete answer was saved. You can ask again.</p> : null}</article>)}<div ref={bottomRef} /></div> : <div className="mx-auto flex min-h-full max-w-2xl flex-col items-center justify-center text-center"><div aria-hidden="true" className="grid size-12 place-items-center border border-line-strong bg-surface text-accent"><svg className="size-5" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24"><path d="M12 3a7 7 0 0 0-4 12.74V20l4-2 4 2v-4.26A7 7 0 0 0 12 3Z" /><path d="M9 10h.01M15 10h.01M9.5 13.5c1.5 1.2 3.5 1.2 5 0" /></svg></div><h2 className="mt-4 text-lg font-semibold">Learn by working it through</h2><p className="mt-2 max-w-md text-sm leading-6 text-muted">Ask about a concept, compare approaches, or share a problem you’re solving. The tutor will guide you without jumping to a full answer.</p><div className="mt-6 grid w-full gap-2 text-left sm:grid-cols-2">{["Explain how a hash map works and when to use one.", "Walk me through Kadane’s algorithm with a small example.", "Compare BFS and DFS for graph traversal.", "Help me reason about time and space complexity."].map((prompt) => <button className="border border-line bg-surface p-3 text-sm leading-5 text-muted hover:border-line-strong hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent" key={prompt} onClick={() => void sendMessage(prompt)} type="button">{prompt}</button>)}</div></div>}
+        <div ref={messageScrollRef} aria-live="polite" className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-4 py-6 sm:px-6 sm:py-8" onScroll={(event) => { const node = event.currentTarget; shouldAutoScrollRef.current = node.scrollHeight - node.scrollTop - node.clientHeight < 120; }}>
+          {messages.length ? <div className="mx-auto flex w-full min-w-0 max-w-3xl flex-col gap-5">{messages.map((message) => <article className={`w-fit min-w-0 max-w-[95%] space-y-3 border p-4 sm:max-w-[90%] ${message.role === "user" ? "ml-auto border-line-strong bg-hover" : "mr-auto border-line bg-surface"}`} key={message.id}><div className="flex min-w-0 items-center justify-between gap-4"><p className="min-w-0 break-words text-[11px] font-semibold uppercase tracking-wide text-muted">{message.role === "user" ? "You" : "CodeTrail Tutor"}{message.status === "streaming" ? " · Generating" : message.status === "interrupted" ? " · Interrupted" : message.status === "cancelled" ? " · Stopped" : message.status === "failed" ? " · Failed" : message.status === "incomplete" ? " · Partial response" : ""}</p>{message.role === "assistant" && message.content && <TutorAnswerCopy content={message.content} />}</div>{message.content ? message.role === "assistant" ? <TutorMarkdown content={message.content} /> : <p className="min-w-0 max-w-full whitespace-pre-wrap break-words text-sm leading-6 text-foreground [overflow-wrap:anywhere]">{message.content}</p> : message.status === "streaming" ? <p className="text-sm text-muted" role="status">Thinking…</p> : message.role === "assistant" && (message.status === "failed" || message.status === "interrupted" || message.status === "cancelled" || message.status === "incomplete") ? <p className="text-sm text-muted">This response ended before a complete answer was saved. You can ask again.</p> : null}</article>)}<div ref={bottomRef} /></div> : <div className="mx-auto flex min-h-full max-w-2xl flex-col items-center justify-center text-center"><div aria-hidden="true" className="grid size-12 place-items-center border border-line-strong bg-surface text-accent"><svg className="size-5" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24"><path d="M12 3a7 7 0 0 0-4 12.74V20l4-2 4 2v-4.26A7 7 0 0 0 12 3Z" /><path d="M9 10h.01M15 10h.01M9.5 13.5c1.5 1.2 3.5 1.2 5 0" /></svg></div><h2 className="mt-4 text-lg font-semibold">Learn by working it through</h2><p className="mt-2 max-w-md text-sm leading-6 text-muted">Ask about a concept, compare approaches, or share a problem you’re solving. The tutor will guide you without jumping to a full answer.</p><div className="mt-6 grid w-full gap-2 text-left sm:grid-cols-2">{["Explain how a hash map works and when to use one.", "Walk me through Kadane’s algorithm with a small example.", "Compare BFS and DFS for graph traversal.", "Help me reason about time and space complexity."].map((prompt) => <button className="border border-line bg-surface p-3 text-sm leading-5 text-muted hover:border-line-strong hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent" key={prompt} onClick={() => void sendMessage(prompt)} type="button">{prompt}</button>)}</div></div>}
         </div>
 
         <div className="border-t border-line bg-surface p-3 sm:p-4">
@@ -286,3 +306,5 @@ export default function TutorChat() {
     {mobileHistoryOpen && <button aria-label="Close conversation history" className="absolute inset-0 z-20 bg-black/50 md:hidden" onClick={() => setMobileHistoryOpen(false)} type="button" />}
   </section>;
 }
+
+export default memo(TutorChat);

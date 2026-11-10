@@ -1,4 +1,4 @@
-import TutorChat from "./tutor-chat";
+import TutorChat from "@/components/tutor/tutor-chat";
 
 export default function TutorPage() {
   return <TutorChat />;

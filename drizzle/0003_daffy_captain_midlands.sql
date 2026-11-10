@@ -1,0 +1,1 @@
+ALTER TABLE `problem_submission` ADD `execution_diagnostic` text;

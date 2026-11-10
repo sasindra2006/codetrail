@@ -153,6 +153,21 @@ html[data-theme="dark"] .problem-description-scrollbar {
   white-space: pre;
 }
 
+.tutor-markdown .katex-display {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.5rem 0.25rem;
+  color: var(--foreground);
+  scrollbar-width: thin;
+}
+
+.tutor-markdown .katex,
+.tutor-markdown .katex-html {
+  max-width: 100%;
+}
+
 .problem-mobile { display: none; }
 
 @media (max-width: 1023px) {

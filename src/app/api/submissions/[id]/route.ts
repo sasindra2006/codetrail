@@ -4,6 +4,7 @@ import { getSession } from "@/lib/auth-server";
 import { getDatabase } from "@/lib/db";
 import { problemSubmissions } from "@/lib/db/schema";
 import { findInternalProblem } from "@/lib/problems";
+import { getExercismProblemTitle } from "@/lib/exercism";
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   let session;
@@ -23,7 +24,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       eq(problemSubmissions.id, id), eq(problemSubmissions.userId, session.user.id), eq(problemSubmissions.isSampleRun, false),
     )).limit(1);
     if (!submission) return NextResponse.json({ error: "Submission not found." }, { status: 404 });
-    return NextResponse.json({ submission: { ...submission, problemTitle: findInternalProblem(submission.problemSlug)?.title ?? submission.problemSlug } }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ submission: {
+      ...submission,
+      problemTitle: findInternalProblem(submission.problemSlug)?.title ?? getExercismProblemTitle(submission.problemSlug) ?? submission.problemSlug,
+    } }, { headers: { "Cache-Control": "no-store" } });
   } catch {
     return NextResponse.json({ error: "Submission could not be loaded." }, { status: 500 });
   }

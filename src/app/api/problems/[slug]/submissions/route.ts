@@ -5,6 +5,7 @@ import { getSession } from "@/lib/auth-server";
 import { getDatabase } from "@/lib/db";
 import { problemSubmissions } from "@/lib/db/schema";
 import { getSubmissionTestCases } from "@/lib/function-test-cases";
+import { ExercismProviderError, getExercismFunctionTestCases, getExercismProblem, getReviewedExercismExercise } from "@/lib/exercism";
 import { runSubmissionSuite } from "@/lib/submission-runner";
 import { findInternalProblem } from "@/lib/problems";
 
@@ -22,7 +23,7 @@ export async function GET(
   { params }: { params: Promise<{ slug: string }> },
 ) {
   const { slug } = await params;
-  if (!findInternalProblem(slug)) {
+  if (!findInternalProblem(slug) && !getReviewedExercismExercise(slug)) {
     return NextResponse.json({ error: "That CodeTrail problem could not be found." }, { status: 404 });
   }
 
@@ -75,14 +76,16 @@ export async function POST(
   if (!session) return jsonError("Sign in to submit a solution.", 401);
 
   const { slug } = await params;
-  const problem = findInternalProblem(slug);
+  let problem;
+  try {
+    problem = findInternalProblem(slug) ?? await getExercismProblem(slug);
+  } catch (error) {
+    return jsonError(error instanceof ExercismProviderError ? error.message : "Exercism is temporarily unavailable.", 503);
+  }
   if (!problem) return jsonError("That CodeTrail problem could not be found.", 404);
   if (problem.executionMode !== "function") {
     return jsonError("Full submissions are not configured for this problem.", 400);
   }
-  const testCases = getSubmissionTestCases(slug);
-  if (!testCases?.length) return jsonError("The full test suite is not configured for this problem.", 503);
-
   const contentLength = Number(request.headers.get("content-length"));
   if (Number.isFinite(contentLength) && contentLength > maxRequestBytes) {
     return jsonError("The submission request is too large.", 413);
@@ -135,9 +138,25 @@ export async function POST(
     return jsonError("Source code must be 20 KB or smaller.", 413);
   }
 
+  let testCases;
+  try {
+    testCases = problem.kind === "exercism"
+      ? await getExercismFunctionTestCases(problem.slug, language, true)
+      : getSubmissionTestCases(slug);
+  } catch (error) {
+    return jsonError(error instanceof ExercismProviderError ? error.message : "Exercism is temporarily unavailable.", 503);
+  }
+  if (!testCases?.length) return jsonError("The full test suite is not configured for this problem.", 503);
+
   let execution;
   try {
-    execution = await runSubmissionSuite({ slug, language, sourceCode, testCases });
+    execution = await runSubmissionSuite({
+      slug: problem.kind === "exercism" ? problem.exerciseSlug : slug,
+      ...(problem.kind === "exercism" ? { adapterId: problem.adapterId } : {}),
+      language,
+      sourceCode,
+      testCases,
+    });
   } catch {
     execution = {
       verdict: "internal_judge_error" as const,
@@ -152,9 +171,12 @@ export async function POST(
     await getDatabase().insert(problemSubmissions).values({
       id: randomUUID(),
       userId: session.user.id,
-      problemSlug: slug,
+      problemSlug: problem.slug,
       language,
       sourceCode,
+      executionDiagnostic: ["runtime_error", "compilation_error", "time_limit_exceeded"].includes(execution.verdict)
+        ? execution.message.slice(0, 8_000)
+        : null,
       status: execution.verdict,
       passedCount: execution.passedCount,
       totalCount: execution.totalCount,

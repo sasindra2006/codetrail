@@ -7,10 +7,12 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
+  useMemo,
 } from "react";
+import { createPortal } from "react-dom";
 import type { editor as MonacoEditor } from "monaco-editor";
 import {
   DockviewDefaultTab,
@@ -20,10 +22,12 @@ import {
   type IDockviewPanelProps,
 } from "dockview-react";
 import {
-  isExternalProblem,
+  isExercismProblem,
   type SupportedLanguage,
   type WorkspaceProblem,
 } from "@/lib/problems";
+import { ExerciseMarkdown } from "@/components/problems/exercise-markdown";
+import TutorChat from "@/components/tutor/tutor-chat";
 import { ProblemExamples, ProblemStatement } from "./problem-statement";
 
 const DockviewReact = dynamic(
@@ -40,6 +44,9 @@ const CodeEditor = dynamic(() => import("@monaco-editor/react"), {
 });
 
 const layoutStorageKey = "codetrail-problem-workspace-layout-v1";
+const subscribeToClientMount = () => () => {};
+const getClientMountSnapshot = () => true;
+const getServerMountSnapshot = () => false;
 type PanelId = "problem" | "editor" | "results" | "history";
 type SampleVerdict =
   | "accepted"
@@ -102,8 +109,54 @@ function useWorkspace() {
   return context;
 }
 
+function FloatingTutorLauncher() {
+  const { problem, language, results, selectedSample, submission, editorRef } = useWorkspace();
+  const [open, setOpen] = useState(false);
+  const portalReady = useSyncExternalStore(subscribeToClientMount, getClientMountSnapshot, getServerMountSnapshot);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const getEditorCode = useCallback(() => editorRef.current?.getValue() ?? "", [editorRef]);
+
+  const sample = results?.[selectedSample];
+  const diagnostic = submission
+    ? ["runtime_error", "compilation_error"].includes(submission.verdict) ? submission.message : ""
+    : sample?.error && ["runtime_error", "compilation_error", "time_limit_exceeded", "service_error"].includes(sample.verdict ?? "") ? sample.error : "";
+  const close = useCallback(() => {
+    setOpen(false);
+    requestAnimationFrame(() => triggerRef.current?.focus());
+  }, []);
+  if (!portalReady) return null;
+
+  return createPortal(<>
+    <button
+      aria-controls="floating-tutor-panel"
+      aria-expanded={open}
+      aria-haspopup="dialog"
+      aria-label={open ? "Close AI Tutor" : "Open AI Tutor"}
+      className="fixed bottom-4 right-4 z-40 grid size-14 place-items-center rounded-full border border-cyan-300/50 bg-zinc-950 text-cyan-300 shadow-lg shadow-cyan-950/30 outline-none transition-[transform,box-shadow,border-color,color] duration-200 hover:scale-105 hover:border-cyan-200 hover:text-cyan-100 hover:shadow-cyan-400/20 focus-visible:ring-2 focus-visible:ring-cyan-300 focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:bottom-6 sm:right-6"
+      onClick={() => open ? close() : setOpen(true)}
+      ref={triggerRef}
+      title="Ask the CodeTrail Tutor"
+      type="button"
+    >
+      <svg aria-hidden="true" className="size-6" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7" viewBox="0 0 24 24"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5 8 8 0 0 1-3.3-.7L4 20l1.7-4.1A7.5 7.5 0 1 1 20 11.5Z" /><path d="m12 7.5.8 2.2 2.2.8-2.2.8L12 13.5l-.8-2.2-2.2-.8 2.2-.8.8-2.2Z" /></svg>
+    </button>
+    <div id="floating-tutor-panel" className="contents">
+      <TutorChat
+        onClose={close}
+        open={open}
+        variant="floating"
+        workspaceProblemSlug={problem.slug}
+        workspaceProblemTitle={problem.title}
+        workspaceLanguage={language}
+        getEditorCode={getEditorCode}
+        workspaceErrorText={diagnostic}
+      />
+    </div>
+  </>, document.body);
+}
+
 function starterCodeFor(problem: WorkspaceProblem, language: SupportedLanguage) {
-  if (isExternalProblem(problem)) return problem.starterCode;
+  if (isExercismProblem(problem)) return problem.languageStarters[language] ?? "";
   return problem.languageStarters?.[language] ?? problem.starterCode;
 }
 
@@ -112,8 +165,9 @@ function WorkspaceTab(props: IDockviewPanelHeaderProps) {
 }
 
 function DescriptionPanel() {
-  const { problem, resetLayout } = useWorkspace();
-  const isExternal = isExternalProblem(problem);
+  const { problem, language, resetLayout } = useWorkspace();
+  const isExercism = isExercismProblem(problem);
+  const trackMetadata = isExercism ? problem.trackMetadata[language] : undefined;
 
   return (
     <div className="problem-description-scrollbar flex h-full min-h-0 flex-col overflow-y-auto overscroll-contain px-5 py-5 sm:px-6">
@@ -128,34 +182,27 @@ function DescriptionPanel() {
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-xl font-semibold tracking-tight">{problem.title}</h1>
-              {isExternal ? (
-                <>
-                  <span className="border border-line-strong px-2 py-1 font-mono text-xs text-muted">
-                    {problem.contestId}{problem.index}
-                  </span>
-                  {problem.rating !== null ? (
-                    <span className="border border-line-strong px-2 py-1 text-xs text-muted">
-                      Rating: {problem.rating}
-                    </span>
-                  ) : (
-                    <span className="border border-line-strong px-2 py-1 text-xs text-muted">
-                      Unrated
-                    </span>
-                  )}
-                </>
+              {isExercism ? (
+                <span className="border border-line-strong px-2 py-1 text-xs text-muted">Exercism · {language === "cpp17" ? "C++" : "Python"}</span>
               ) : (
                 <span className="border border-line-strong px-2 py-1 text-xs text-muted">
                   {problem.difficulty}
                 </span>
               )}
             </div>
-            {problem.topics.length > 0 && (
+            {(problem.topics.length > 0 || (trackMetadata?.concepts.length ?? 0) > 0) && (
               <div className="mt-3 flex flex-wrap gap-1.5" aria-label="Problem topics">
-                {problem.topics.map((topic) => (
+                {(isExercism ? trackMetadata?.concepts ?? [] : problem.topics).map((topic) => (
                   <span className="border border-line px-2 py-1 text-xs text-muted" key={topic}>
                     {topic}
                   </span>
                 ))}
+              </div>
+            )}
+            {!isExercism && problem.complexity && (
+              <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted" aria-label="Complexity">
+                <span>Time: {problem.complexity.time}</span>
+                <span>Space: {problem.complexity.space}</span>
               </div>
             )}
           </div>
@@ -183,47 +230,49 @@ function DescriptionPanel() {
           </button>
         </div>
       </div>
-      {isExternal ? (
+      {isExercism ? (
         <div className="flex flex-col gap-6">
-          <section className="border border-line bg-surface p-4">
-            <h3 className="text-sm font-semibold text-foreground">Statement unavailable</h3>
-            <p className="mt-2 text-xs leading-6 text-muted">
-              A statement and sample tests are not available in this workspace. Only catalog metadata was provided for this external problem, so no statement or examples are shown here.
-            </p>
-          </section>
-
           <section>
-            <h3 className="text-sm font-semibold">Problem Metadata</h3>
+            <ExerciseMarkdown>{problem.statement}</ExerciseMarkdown>
+          </section>
+          <section>
+            <h3 className="text-sm font-semibold">Exercism track metadata</h3>
             <dl className="mt-3 grid grid-cols-2 gap-3 text-xs sm:grid-cols-3">
               <div className="border border-line bg-surface p-3">
-                <dt className="text-[11px] uppercase tracking-wide text-muted">Contest ID</dt>
-                <dd className="mt-1 font-mono font-medium text-foreground">{problem.contestId}</dd>
+                <dt className="text-[11px] uppercase tracking-wide text-muted">Track difficulty</dt>
+                <dd className="mt-1 font-medium text-foreground">{trackMetadata?.difficulty ?? "Not provided"} <span className="text-muted">(track scale)</span></dd>
               </div>
               <div className="border border-line bg-surface p-3">
-                <dt className="text-[11px] uppercase tracking-wide text-muted">Problem Index</dt>
-                <dd className="mt-1 font-mono font-medium text-foreground">{problem.index}</dd>
+                <dt className="text-[11px] uppercase tracking-wide text-muted">Track</dt>
+                <dd className="mt-1 font-medium text-foreground">{trackMetadata?.track === "xcpp" ? "C++" : "Python"}</dd>
               </div>
-              <div className="border border-line bg-surface p-3">
-                <dt className="text-[11px] uppercase tracking-wide text-muted">Rating</dt>
-                <dd className="mt-1 font-medium text-foreground">
-                  {problem.rating !== null ? problem.rating : "Unrated"}
-                </dd>
-              </div>
-              {problem.solvedCount !== null && (
-                <div className="border border-line bg-surface p-3 col-span-2 sm:col-span-3">
-                  <dt className="text-[11px] uppercase tracking-wide text-muted">Solved Count</dt>
-                  <dd className="mt-1 font-medium text-foreground">
-                    {problem.solvedCount.toLocaleString()} accepted submissions on the source platform
-                  </dd>
-                </div>
-              )}
+              {trackMetadata?.concepts.length ? <div className="col-span-2 border border-line bg-surface p-3 sm:col-span-3">
+                <dt className="text-[11px] uppercase tracking-wide text-muted">Concepts listed by this track</dt>
+                <dd className="mt-1 font-medium text-foreground">{trackMetadata.concepts.join(", ")}</dd>
+              </div> : null}
+              {trackMetadata?.authors.length ? <div className="col-span-2 border border-line bg-surface p-3 sm:col-span-3">
+                <dt className="text-[11px] uppercase tracking-wide text-muted">Track authors</dt>
+                <dd className="mt-1 font-medium text-foreground">{trackMetadata.authors.join(", ")}</dd>
+              </div> : null}
             </dl>
           </section>
-
           <section>
-            <h3 className="text-sm font-semibold">Workspace Notes</h3>
-              <p className="mt-2 text-xs leading-6 text-muted">You can draft a C++17 solution here. Sample execution is unavailable because no verified test cases are attached to this problem.</p>
+            <h3 className="text-sm font-semibold">Examples</h3>
+            <div className="mt-3 space-y-3"><ProblemExamples samples={problem.samples} /></div>
           </section>
+          <footer className="space-y-2 border-t border-line pt-4 text-xs leading-5 text-muted">
+            <p>{problem.statementChanges}</p>
+            <p>Upstream source: <a className="text-accent underline" href={problem.sourceUrl} rel="noreferrer noopener" target="_blank">{problem.sourceName} contributors</a>. Statement license: <a className="text-accent underline" href={problem.statementLicenseUrl} rel="noreferrer noopener" target="_blank">{problem.statementLicense}</a>.</p>
+            <p>Exercism {trackMetadata?.track === "xcpp" ? "C++" : "Python"} exercise by {trackMetadata?.authors.join(", ") || "its listed authors"}; <a className="text-accent underline" href={trackMetadata?.sourceUrl} rel="noreferrer noopener" target="_blank">exercise source and contributors</a> · <a className="text-accent underline" href={language === "cpp17" ? problem.exerciseLicenseUrls[1] : problem.exerciseLicenseUrls[0]} rel="noreferrer noopener" target="_blank">{problem.exerciseLicense} license</a>.</p>
+            <p>Canonical test data from <a className="text-accent underline" href={problem.testDataSourceUrl} rel="noreferrer noopener" target="_blank">Exercism problem-specifications</a>, under <a className="text-accent underline" href={problem.testDataLicenseUrl} rel="noreferrer noopener" target="_blank">{problem.testDataLicense}</a>.</p>
+            <details className="border border-line bg-surface p-3">
+              <summary className="cursor-pointer font-medium text-foreground">MIT copyright and permission notices</summary>
+              <div className="mt-3 space-y-3">
+                <div><p className="mb-1">Exercism {trackMetadata?.track === "xcpp" ? "C++" : "Python"} track</p><pre className="max-h-48 overflow-auto whitespace-pre-wrap font-mono text-[10px] leading-4">{problem.exerciseLicenseNotices[language]}</pre></div>
+                <div><p className="mb-1">Exercism problem-specifications test data</p><pre className="max-h-48 overflow-auto whitespace-pre-wrap font-mono text-[10px] leading-4">{problem.testDataLicenseNotice}</pre></div>
+              </div>
+            </details>
+          </footer>
         </div>
       ) : (
         <div className="flex flex-col gap-6">
@@ -281,9 +330,8 @@ function EditorPanel() {
     editorRef,
     monacoRef,
   } = useWorkspace();
-  const isExternal = isExternalProblem(problem);
-  const supportsPython = !isExternal
-    && problem.executionMode === "function"
+  const isExercism = isExercismProblem(problem);
+  const supportsPython = problem.executionMode === "function"
     && problem.supportedLanguages?.includes("python3");
 
   return (
@@ -307,19 +355,8 @@ function EditorPanel() {
             C++17
           </span>
         )}
-        {isExternal ? (
-          <button
-            aria-disabled="true"
-            className="inline-flex h-8 shrink-0 cursor-not-allowed items-center gap-2 border border-line bg-panel px-3 text-xs font-semibold text-muted opacity-60 outline-none"
-            disabled
-            title="Sample execution is disabled for external problems"
-            type="button"
-          >
-            Samples unavailable
-          </button>
-        ) : (
-          <>
-          {!isExternal && <Link
+        <>
+          {!isExercism && <Link
             className="inline-flex h-8 shrink-0 items-center gap-2 border border-line px-2 text-xs font-medium text-muted outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-accent"
             href="/tutor"
             onClick={() => {
@@ -328,28 +365,29 @@ function EditorPanel() {
             }}
             title="Open the tutor; editor code is only sent if you explicitly include it there"
           >Ask AI Tutor</Link>}
-          <button
-            aria-busy={running || submitting}
-            className="inline-flex h-8 shrink-0 items-center gap-2 border border-line px-3 text-xs font-semibold text-foreground outline-none transition-colors hover:bg-hover focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-wait disabled:opacity-60"
-            disabled={running || submitting}
-            onClick={runSamples}
-            type="button"
-          >
-            {running ? "Running…" : "Run Samples"}
-          </button>
-          {!isExternal && problem.executionMode === "function" && (
+          <div className="ml-auto flex shrink-0 items-center gap-2">
             <button
-              aria-busy={submitting || running}
-              className="inline-flex h-8 shrink-0 items-center gap-2 bg-accent px-3 text-xs font-semibold text-accent-foreground outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-wait disabled:opacity-60"
+              aria-busy={running || submitting}
+              className="inline-flex h-8 shrink-0 items-center gap-2 border border-line px-3 text-xs font-semibold text-foreground outline-none transition-colors hover:bg-hover focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-wait disabled:opacity-60"
               disabled={running || submitting}
-              onClick={submitSolution}
+              onClick={runSamples}
               type="button"
             >
-              {submitting ? "Submitting…" : "Submit"}
+              {running ? "Running…" : "Run Samples"}
             </button>
-          )}
-          </>
-        )}
+            {problem.executionMode === "function" && (
+              <button
+                aria-busy={submitting || running}
+                className="inline-flex h-8 shrink-0 items-center gap-2 bg-accent px-3 text-xs font-semibold text-accent-foreground outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-wait disabled:opacity-60"
+                disabled={running || submitting}
+                onClick={submitSolution}
+                type="button"
+              >
+                {submitting ? "Submitting…" : "Submit"}
+              </button>
+            )}
+          </div>
+        </>
       </div>
       <div className="min-h-0 min-w-0 flex-1">
         <CodeEditor
@@ -385,27 +423,6 @@ function EditorPanel() {
 
 function ResultsPanel() {
   const { problem, results, runError, running, submitting, submission, submissionError, selectedSample, setSelectedSample } = useWorkspace();
-  const isExternal = isExternalProblem(problem);
-
-  if (isExternal) {
-    return (
-      <div className="flex h-full min-h-0 flex-col">
-        <div className="flex min-h-11 shrink-0 items-center justify-between border-b border-line px-4">
-          <span className="text-xs font-medium text-foreground">Test Results</span>
-          <span className="border border-line px-1.5 py-0.5 text-[11px] text-muted">Unavailable</span>
-        </div>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-6">
-          <div className="border border-line bg-surface p-4">
-            <h4 className="text-sm font-medium text-foreground">Execution unavailable</h4>
-            <p className="mt-2 text-xs leading-6 text-muted">
-              Sample input and expected output are not available for this problem, so the code runner cannot check a result yet.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   const activeResult = results?.[selectedSample];
   const passedCount = results?.filter((result) => result.passed).length ?? 0;
   const verdictLabel = (result: SampleResult) => {
@@ -586,9 +603,11 @@ function ResultsPanel() {
           <div className="px-4 py-5">
             <p className="text-sm text-muted">Run your code to see how it handles the sample cases.</p>
             <p className="mt-1 text-xs leading-5 text-muted">
-              {!isExternalProblem(problem) && problem.executionMode === "function"
+              {problem.executionMode === "function" && !isExercismProblem(problem)
                 ? "The sample run checks the displayed examples plus additional cases; it is not a full judge."
-                : "Only the examples shown in this problem are sent for execution."}
+                : isExercismProblem(problem)
+                  ? "Run Samples checks the public example. Submit runs the complete server-side canonical suite."
+                  : "Only the examples shown in this problem are sent for execution."}
             </p>
           </div>
         )}
@@ -600,7 +619,7 @@ function ResultsPanel() {
 type HistoryItem = { id: string; language: string; status: string; passedCount: number; totalCount: number; createdAt: string };
 function HistoryPanel() {
   const { problem, historyVersion } = useWorkspace();
-  const problemSlug = isExternalProblem(problem) ? null : problem.slug;
+  const problemSlug = problem.slug;
   const [items, setItems] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -671,6 +690,17 @@ export function ProblemWorkspace({ problem }: { problem: WorkspaceProblem }) {
   const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<typeof import("monaco-editor") | null>(null);
 
+  const changeLanguage = useCallback((nextLanguage: SupportedLanguage) => {
+    setLanguage(nextLanguage);
+    if (isExercismProblem(problem)) {
+      setRunError(null);
+      setSubmissionError(null);
+      setSubmission(null);
+      setResults(null);
+      setSelectedSample(0);
+    }
+  }, [problem]);
+
   useEffect(() => {
     const updateTheme = () => {
       const theme = document.documentElement.dataset.theme === "light" ? "vs" : "vs-dark";
@@ -687,7 +717,7 @@ export function ProblemWorkspace({ problem }: { problem: WorkspaceProblem }) {
   }, []);
 
   const runSamples = useCallback(async () => {
-    if (isExternalProblem(problem) || executionLockRef.current || submitting || running) return;
+    if (executionLockRef.current || submitting || running) return;
     executionLockRef.current = true;
     setRunning(true);
     setRunError(null);
@@ -726,12 +756,13 @@ export function ProblemWorkspace({ problem }: { problem: WorkspaceProblem }) {
   }, [language, problem, sourceCode, running, submitting]);
 
   const submitSolution = useCallback(async () => {
-    if (isExternalProblem(problem) || executionLockRef.current || running || submitting || problem.executionMode !== "function") return;
+    if (executionLockRef.current || running || submitting || problem.executionMode !== "function") return;
     executionLockRef.current = true;
     setSubmitting(true);
     setSubmission(null);
     setSubmissionError(null);
     setRunError(null);
+    setResults(null);
     try {
       const response = await fetch(`/api/problems/${encodeURIComponent(problem.slug)}/submissions`, {
         method: "POST",
@@ -886,7 +917,7 @@ export function ProblemWorkspace({ problem }: { problem: WorkspaceProblem }) {
     () => ({
       problem,
       language,
-      setLanguage,
+      setLanguage: changeLanguage,
       sourceCode,
       setSourceCode,
       editorTheme,
@@ -908,7 +939,7 @@ export function ProblemWorkspace({ problem }: { problem: WorkspaceProblem }) {
     [
       problem,
       language,
-      setLanguage,
+      changeLanguage,
       sourceCode,
       setSourceCode,
       editorTheme,
@@ -976,6 +1007,7 @@ export function ProblemWorkspace({ problem }: { problem: WorkspaceProblem }) {
           </div>
         </div>
       </section>
+      <FloatingTutorLauncher />
     </WorkspaceContext.Provider>
   );
 }

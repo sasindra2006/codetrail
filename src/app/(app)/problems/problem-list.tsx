@@ -4,12 +4,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { Problem } from "@/app/api/problems/route";
 
-type ProblemResponse = { problems?: Problem[]; externalUnavailable?: boolean; error?: string };
-type Difficulty = "all" | "Easy" | "Medium" | "Hard" | "Very Hard" | "Expert" | "Unrated";
-type SortOption = "recommended" | "difficulty-asc" | "difficulty-desc" | "solved-desc" | "solved-asc" | "title-asc" | "title-desc";
+type ProblemResponse = { problems?: Problem[]; error?: string };
+type Difficulty = string;
+type SortOption = "recommended" | "difficulty-asc" | "difficulty-desc" | "title-asc" | "title-desc";
 
 let cachedProblems: Problem[] | null = null;
-let cachedExternalUnavailable = false;
 let pendingRequest: Promise<Problem[]> | null = null;
 
 async function loadProblems(): Promise<Problem[]> {
@@ -21,7 +20,6 @@ async function loadProblems(): Promise<Problem[]> {
         if (!response.ok) throw new Error(payload.error ?? "Unable to load problems.");
         if (!Array.isArray(payload.problems)) throw new Error("The problem list was not available.");
         cachedProblems = payload.problems;
-        cachedExternalUnavailable = payload.externalUnavailable === true;
         return payload.problems;
       })
       .finally(() => { pendingRequest = null; });
@@ -29,67 +27,46 @@ async function loadProblems(): Promise<Problem[]> {
   return pendingRequest;
 }
 
-const difficultyOptions: { value: Difficulty; label: string }[] = [
-  { value: "all", label: "All difficulties" },
-  { value: "Easy", label: "Easy" },
-  { value: "Medium", label: "Medium" },
-  { value: "Hard", label: "Hard" },
-  { value: "Very Hard", label: "Very Hard" },
-  { value: "Expert", label: "Expert" },
-  { value: "Unrated", label: "Unrated" },
-];
-
 const sortOptions: { value: SortOption; label: string }[] = [
   { value: "recommended", label: "Recommended" },
   { value: "difficulty-asc", label: "Difficulty: Easy to Hard" },
   { value: "difficulty-desc", label: "Difficulty: Hard to Easy" },
-  { value: "solved-desc", label: "Most Solved" },
-  { value: "solved-asc", label: "Least Solved" },
   { value: "title-asc", label: "Title: A to Z" },
   { value: "title-desc", label: "Title: Z to A" },
 ];
 
-function isValidRating(rating: number | null): rating is number {
-  return rating !== null && Number.isInteger(rating) && rating >= 800;
-}
-
-function difficultyLabel(problem: Problem): Exclude<Difficulty, "all"> {
-  if (problem.difficulty !== null) return problem.difficulty === "Easy" ? "Easy" : "Unrated";
-  if (!isValidRating(problem.rating)) return "Unrated";
-  if (problem.rating < 1200) return "Easy";
-  if (problem.rating < 1600) return "Medium";
-  if (problem.rating < 2000) return "Hard";
-  if (problem.rating < 2400) return "Very Hard";
-  return "Expert";
+function difficultyLabel(problem: Problem) {
+  if (problem.difficulty) return problem.difficulty;
+  const ratings = Object.entries(problem.trackDifficulties ?? {}).filter((entry): entry is [string, number] => typeof entry[1] === "number");
+  return ratings.map(([language, rating]) => `${language === "python3" ? "Python 3" : "C++17"} · ${rating}`).join(" / ") || "Not provided";
 }
 
 function matchesDifficulty(problem: Problem, difficulty: Difficulty) {
-  return difficulty === "all" || difficultyLabel(problem) === difficulty;
+  if (difficulty === "all") return true;
+  if (difficulty.startsWith("track:")) {
+    const [, language, score] = difficulty.split(":");
+    return String(problem.trackDifficulties?.[language as "python3" | "cpp17"]) === score;
+  }
+  return difficulty === "Unrated" ? difficultyLabel(problem) === "Not provided" : problem.difficulty === difficulty;
 }
 
-function formatCount(count: number | null) {
-  if (count === null) return "—";
-  return new Intl.NumberFormat("en", {
-    notation: count >= 1000 ? "compact" : "standard",
-    maximumFractionDigits: 1,
-  }).format(count);
+function normalizeTopicLabel(value: string) {
+  return value.trim().toLocaleLowerCase().replace(/[\s_-]+/g, " ");
+}
+
+function matchesTopic(problem: Problem, topic: string) {
+  if (problem.topics.includes(topic)) return true;
+  // Exercism lists track concepts, not algorithm names. Let an exact title match
+  // satisfy a cross-provider topic filter without adding synthetic topic metadata.
+  return problem.source === "exercism"
+    && normalizeTopicLabel(problem.title) === normalizeTopicLabel(topic);
 }
 
 const batchSize = 50;
-const difficultyOrder: Record<Exclude<Difficulty, "all">, number> = {
-  Easy: 0,
-  Medium: 1,
-  Hard: 2,
-  "Very Hard": 3,
-  Expert: 4,
-  Unrated: 5,
-};
-
 export function ProblemList({ initialSearch = "" }: { initialSearch?: string }) {
   const [problems, setProblems] = useState<Problem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [externalUnavailable, setExternalUnavailable] = useState(false);
   const [query, setQuery] = useState(initialSearch);
   const [difficulty, setDifficulty] = useState<Difficulty>("all");
   const [selectedTag, setSelectedTag] = useState("all");
@@ -106,7 +83,6 @@ export function ProblemList({ initialSearch = "" }: { initialSearch?: string }) 
       .then((data) => {
         if (active) {
           setProblems(data);
-          setExternalUnavailable(cachedExternalUnavailable);
         }
       })
       .catch((reason: unknown) => {
@@ -117,6 +93,23 @@ export function ProblemList({ initialSearch = "" }: { initialSearch?: string }) 
   }, []);
 
   const tags = useMemo(() => [...new Set(problems.flatMap((problem) => problem.topics))].sort(), [problems]);
+  const difficultyOptions = useMemo(() => {
+    const options: { value: Difficulty; label: string }[] = [{ value: "all", label: "All difficulties" }];
+    for (const level of ["Easy", "Medium", "Hard"] as const) {
+      if (problems.some((problem) => problem.difficulty === level)) options.push({ value: level, label: level });
+    }
+    const trackValues = new Map<string, string>();
+    for (const problem of problems) {
+      for (const [language, score] of Object.entries(problem.trackDifficulties ?? {})) {
+        if (typeof score !== "number") continue;
+        const value = `track:${language}:${score}`;
+        trackValues.set(value, `${language === "python3" ? "Python 3" : "C++17"} track · ${score}`);
+      }
+    }
+    options.push(...[...trackValues].map(([value, label]) => ({ value, label })));
+    options.push({ value: "Unrated", label: "Not provided" });
+    return options;
+  }, [problems]);
   const filteredProblems = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     return problems.filter((problem) => {
@@ -125,43 +118,39 @@ export function ProblemList({ initialSearch = "" }: { initialSearch?: string }) 
         || problem.topics.some((tag) => tag.toLowerCase().includes(normalizedQuery))
         || (problem.problemId?.toLowerCase().includes(normalizedQuery) ?? false);
       return matchesQuery && matchesDifficulty(problem, difficulty)
-        && (selectedTag === "all" || problem.topics.includes(selectedTag));
+        && (selectedTag === "all" || matchesTopic(problem, selectedTag));
     });
   }, [problems, query, difficulty, selectedTag]);
 
   const sortedProblems = useMemo(() => {
-    if (sort === "recommended") return filteredProblems;
+    if (sort === "recommended") {
+      const normalizedQuery = normalizeTopicLabel(query);
+      if (!normalizedQuery) return filteredProblems;
+
+      return [...filteredProblems].sort((left, right) => {
+        const leftExactTitle = normalizeTopicLabel(left.title) === normalizedQuery;
+        const rightExactTitle = normalizeTopicLabel(right.title) === normalizedQuery;
+        if (leftExactTitle !== rightExactTitle) return leftExactTitle ? -1 : 1;
+        return 0;
+      });
+    }
 
     const recommendedOrder = new Map(problems.map((problem, index) => [problem.key, index]));
     const compareDifficulty = (left: Problem, right: Problem, descending: boolean) => {
-      const leftLabel = difficultyLabel(left);
-      const rightLabel = difficultyLabel(right);
-      const leftKnown = leftLabel !== "Unrated";
-      const rightKnown = rightLabel !== "Unrated";
+      const leftKnown = Boolean(left.difficulty) || Object.values(left.trackDifficulties ?? {}).some((score) => typeof score === "number");
+      const rightKnown = Boolean(right.difficulty) || Object.values(right.trackDifficulties ?? {}).some((score) => typeof score === "number");
       if (leftKnown !== rightKnown) return leftKnown ? -1 : 1;
       if (!leftKnown) return 0;
-
-      if (left.difficulty === null && right.difficulty === null
-        && isValidRating(left.rating) && isValidRating(right.rating)
-        && left.rating !== right.rating) {
-        return descending ? right.rating - left.rating : left.rating - right.rating;
-      }
-      const categoryComparison = difficultyOrder[leftLabel] - difficultyOrder[rightLabel];
-      return descending ? -categoryComparison : categoryComparison;
+      // Track difficulty scales differ by language, so only order within the
+      // same track; do not compare a Python score with a C++ score.
+      if (left.source !== right.source) return (left.source === "internal" ? -1 : 1) * (descending ? -1 : 1);
+      return left.title.localeCompare(right.title, undefined, { sensitivity: "base" }) * (descending ? -1 : 1);
     };
 
     return [...filteredProblems].sort((left, right) => {
       let comparison = 0;
       if (sort === "difficulty-asc" || sort === "difficulty-desc") {
         comparison = compareDifficulty(left, right, sort === "difficulty-desc");
-      } else if (sort === "solved-desc" || sort === "solved-asc") {
-        if (left.solvedCount === null || right.solvedCount === null) {
-          comparison = left.solvedCount === right.solvedCount ? 0 : left.solvedCount === null ? 1 : -1;
-        } else if (left.solvedCount !== right.solvedCount) {
-          comparison = sort === "solved-desc"
-            ? right.solvedCount - left.solvedCount
-            : left.solvedCount - right.solvedCount;
-        }
       } else {
         comparison = left.title.localeCompare(right.title, undefined, { sensitivity: "base" });
         if (sort === "title-desc") comparison *= -1;
@@ -169,7 +158,7 @@ export function ProblemList({ initialSearch = "" }: { initialSearch?: string }) 
 
       return comparison || (recommendedOrder.get(left.key) ?? 0) - (recommendedOrder.get(right.key) ?? 0);
     });
-  }, [filteredProblems, problems, sort]);
+  }, [filteredProblems, problems, query, sort]);
 
   const visibleProblems = sortedProblems.slice(0, visibleCount);
   const hasMore = visibleCount < sortedProblems.length;
@@ -221,13 +210,11 @@ export function ProblemList({ initialSearch = "" }: { initialSearch?: string }) 
 
   function retry() {
     cachedProblems = null;
-    cachedExternalUnavailable = false;
     setError(null);
     setLoading(true);
     loadProblems()
       .then((data) => {
         setProblems(data);
-        setExternalUnavailable(cachedExternalUnavailable);
       })
       .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "Unable to load problems."))
       .finally(() => setLoading(false));
@@ -246,7 +233,7 @@ export function ProblemList({ initialSearch = "" }: { initialSearch?: string }) 
         </p>
       </header>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(14rem,1.3fr)_11rem_minmax(12rem,1fr)_14rem]">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(14rem,1.3fr)_11rem_minmax(12rem,1fr)]">
         <label className="flex flex-col gap-2 text-xs font-medium text-muted">
           Search problems
           <span className="flex h-11 items-center gap-2 border border-line bg-panel px-3 focus-within:border-accent">
@@ -284,14 +271,14 @@ export function ProblemList({ initialSearch = "" }: { initialSearch?: string }) 
       ) : (
         <>
           <div className="overflow-hidden border border-line bg-panel" aria-label="Problems">
-            <div className="hidden grid-cols-[minmax(12rem,1fr)_8rem_minmax(12rem,1.2fr)_8rem] gap-4 border-b border-line bg-surface px-5 py-3 text-[11px] font-medium uppercase tracking-[0.12em] text-muted sm:grid">
-              <span>Problem</span><span>Difficulty</span><span>Topics</span><span className="text-right">Solved</span>
+            <div className="hidden grid-cols-[minmax(12rem,1fr)_8rem_minmax(12rem,1.2fr)] gap-4 border-b border-line bg-surface px-5 py-3 text-[11px] font-medium uppercase tracking-[0.12em] text-muted sm:grid">
+              <span>Problem</span><span>Difficulty</span><span>Topics</span>
             </div>
             <div>
               {visibleProblems.map((problem) => (
                 <Link
                   aria-label={`${problem.title}${problem.problemId ? `, problem ${problem.problemId}` : ""}. Open problem workspace in a new tab.`}
-                  className="group grid gap-2 border-b border-line px-4 py-4 outline-none transition-colors last:border-0 hover:bg-hover/60 focus-visible:relative focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent sm:grid-cols-[minmax(12rem,1fr)_8rem_minmax(12rem,1.2fr)_8rem] sm:items-center sm:gap-4 sm:px-5"
+                  className="group grid gap-2 border-b border-line px-4 py-4 outline-none transition-colors last:border-0 hover:bg-hover/60 focus-visible:relative focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent sm:grid-cols-[minmax(12rem,1fr)_8rem_minmax(12rem,1.2fr)] sm:items-center sm:gap-4 sm:px-5"
                   href={problem.href}
                   key={problem.key}
                   rel="noopener noreferrer"
@@ -299,26 +286,22 @@ export function ProblemList({ initialSearch = "" }: { initialSearch?: string }) 
                 >
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-medium text-foreground group-hover:text-accent">{problem.title}</span>
-                    {problem.problemId && <span className="mt-1 block font-mono text-xs text-muted">{problem.problemId}</span>}
+                    {problem.source === "exercism" && <span className="mt-1 block font-mono text-xs text-muted">Exercism · {problem.problemId}</span>}
+                    {problem.source === "exercism" && <span className="mt-1 block text-xs text-muted">{problem.languages.map((language) => language === "python3" ? "Python 3" : "C++17").join(" · ")}</span>}
                   </span>
                   <span className="flex items-center gap-2 sm:block">
                     <span className="text-[11px] text-muted sm:hidden">Difficulty</span>
                     <span className="inline-flex border border-line-strong px-2 py-1 text-xs text-muted">{difficultyLabel(problem)}</span>
-                    {problem.difficulty === null && isValidRating(problem.rating) && <span className="ml-2 text-[11px] text-muted" title="Original source rating">Rating {problem.rating}</span>}
                   </span>
                   <span className="flex min-w-0 flex-wrap gap-1.5">
                     <span className="w-full text-[11px] text-muted sm:hidden">Topics</span>
                     {problem.topics.length > 0 ? problem.topics.slice(0, 4).map((topic) => <span className="border border-line px-2 py-1 text-[11px] text-muted" key={topic}>{topic}</span>) : <span className="text-xs text-muted">—</span>}
                     {problem.topics.length > 4 && <span className="px-1 py-1 text-[11px] text-muted">+{problem.topics.length - 4}</span>}
                   </span>
-                  <span className="flex items-center justify-between text-xs tabular-nums text-muted sm:justify-end">
-                    <span className="sm:hidden">Solved</span>{formatCount(problem.solvedCount)}
-                  </span>
                 </Link>
               ))}
             </div>
           </div>
-          {externalUnavailable && <p className="text-xs leading-5 text-muted" role="status">Some problems are temporarily unavailable. Your CodeTrail practice problems are still ready.</p>}
           {hasMore ? (
             <div className="flex min-h-12 items-center justify-center" ref={sentinelRef}>
               {loadingMore && <p className="text-xs text-muted" role="status">Loading more problems…</p>}

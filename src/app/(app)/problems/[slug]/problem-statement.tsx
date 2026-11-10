@@ -5,8 +5,6 @@ import { useState } from "react";
 import type { ProblemContentBlock, ProblemSection, SampleCase } from "@/lib/problems";
 
 const safeImageHosts = new Set([
-  "codeforces.com",
-  "codeforces.org",
   "images.unsplash.com",
   "images.githubusercontent.com",
   "user-images.githubusercontent.com",
